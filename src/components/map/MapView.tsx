@@ -358,9 +358,21 @@ function MapView({
 
         {routeLine && routeLine.length > 1 && (navigating || directionsOpen) && (
           <>
-            <Polyline positions={routeLine} pathOptions={{ color: '#ffffff', weight: 12, opacity: 0.9 }} />
-            <Polyline positions={routeLine} pathOptions={{ color: '#1a73e8', weight: 7, opacity: 1 }} />
-            <Polyline positions={routeLine} pathOptions={{ color: '#8ab4f8', weight: 3, opacity: 0.95 }} />
+            <Polyline positions={routeLine} pathOptions={{ color: '#000000', weight: 16, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }} />
+            <Polyline positions={routeLine} pathOptions={{ color: '#ccff00', weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round' }} />
+            <Polyline positions={routeLine} pathOptions={{ color: '#111111', weight: 3, opacity: 1, lineCap: 'round', lineJoin: 'round' }} />
+          </>
+        )}
+        {(!routeLine || routeLine.length < 2) && originPoint && destPoint && (navigating || directionsOpen) && (
+          <>
+            <Polyline
+              positions={[[originPoint.lat, originPoint.lng], [destPoint.lat, destPoint.lng]]}
+              pathOptions={{ color: '#000000', weight: 10, opacity: 0.85, dashArray: '10 8', lineCap: 'round' }}
+            />
+            <Polyline
+              positions={[[originPoint.lat, originPoint.lng], [destPoint.lat, destPoint.lng]]}
+              pathOptions={{ color: '#ccff00', weight: 5, opacity: 1, dashArray: '10 8', lineCap: 'round' }}
+            />
           </>
         )}
 

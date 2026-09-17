@@ -13,6 +13,7 @@ export interface AppLocation {
   city?: string;
   district?: string;
   categoryKey?: string;
+  poiId?: string;
   bbox?: { south: number; west: number; north: number; east: number };
 }
 
@@ -342,6 +343,7 @@ export function getCityBoundingBox(name?: string | null, radiusKm = 18) {
 
 export function locationIdentityEqual(a?: AppLocation | null, b?: AppLocation | null): boolean {
   if (!a || !b) return false;
+  if (a.poiId || b.poiId) return a.poiId === b.poiId;
   return a.city === b.city && a.country === b.country && a.district === b.district;
 }
 

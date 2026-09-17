@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowRight, ArrowUpDown, Bike, Bus, Car, Clock, Crosshair, Footprints, MapPin, Plane, X,
+  ArrowRight, ArrowUpDown, Bike, Bus, Car, Clock, Crosshair, Footprints, MapPin, Phone, Plane, X,
 } from 'lucide-react';
 import type { DirectoryListing } from '@/types';
 import { geocodePlace } from '@/services/geocode';
@@ -21,6 +21,7 @@ interface DirectionsPanelProps {
   destination: RoutePoint | null;
   userLocation: { lat: number; lng: number } | null;
   nearbyPlaces: DirectoryListing[];
+  destinationPlace?: DirectoryListing | null;
   mode: TravelMode;
   route: RouteResult | null;
   loading: boolean;
@@ -56,6 +57,7 @@ export default function DirectionsPanel({
   destination,
   userLocation,
   nearbyPlaces,
+  destinationPlace = null,
   mode,
   route,
   loading,
@@ -135,11 +137,12 @@ export default function DirectionsPanel({
   }, [recents, query]);
 
   const destPlace = useMemo(() => {
+    if (destinationPlace) return destinationPlace;
     if (!destination) return null;
     return nearbyPlaces.find(
       (p) => Math.abs(p.lat - destination.lat) < 0.00005 && Math.abs(p.lng - destination.lng) < 0.00005,
     ) ?? null;
-  }, [destination, nearbyPlaces]);
+  }, [destination, destinationPlace, nearbyPlaces]);
   const showRoute = Boolean(route) && Boolean(origin) && Boolean(destination);
   const showSuggestions = inputFocused && !showRoute;
 
@@ -221,6 +224,7 @@ export default function DirectionsPanel({
       </div>
 
       <div className="px-3 pt-3 pb-2">
+        <p className="text-[11px] font-bold text-neutral-900 dark:text-white mb-2 px-0.5">من — إلى</p>
         <div className="flex gap-2 items-stretch">
           <div className="flex flex-col items-center w-5 pt-[18px] pb-[18px] shrink-0">
             <span className="w-3 h-3 rounded-full border-2 border-[#1a73e8] bg-white shrink-0" />
@@ -229,29 +233,40 @@ export default function DirectionsPanel({
           </div>
 
           <div className="flex-1 min-w-0 space-y-2">
-            <input
-              ref={originRef}
-              value={originText}
-              onChange={(e) => {
-                setOriginText(e.target.value);
-                if (origin) onOriginChange(null);
-              }}
-              onFocus={() => setField('origin')}
-              placeholder="اختيار نقطة الانطلاق"
-              className="w-full h-11 rounded-lg bg-[#f1f3f4] dark:bg-[#3c4043] px-3 text-sm text-[#202124] dark:text-[#e8eaed] outline-none border border-transparent focus:border-[#1a73e8] dark:focus:border-[#8ab4f8] focus:bg-white dark:focus:bg-[#202124]"
-            />
-            <input
-              value={destText}
-              onChange={(e) => setDestText(e.target.value)}
-              onFocus={() => setField('dest')}
-              placeholder={destination ? coordsLabel(destination.lat, destination.lng) : 'الوجهة'}
-              className="w-full h-11 rounded-lg bg-[#f1f3f4] dark:bg-[#3c4043] px-3 text-sm text-[#202124] dark:text-[#e8eaed] outline-none border border-transparent focus:border-[#1a73e8] dark:focus:border-[#8ab4f8] focus:bg-white dark:focus:bg-[#202124]"
-            />
-            {destination && (
-              <p className="gmaps-muted text-[11px] font-mono px-1" dir="ltr">
-                {coordsLabel(destination.lat, destination.lng)}
-              </p>
-            )}
+            <div>
+              <p className="text-[10px] font-semibold text-neutral-600 dark:text-zinc-300 mb-1">من (موقعك الحالي)</p>
+              <input
+                ref={originRef}
+                value={originText}
+                onChange={(e) => {
+                  setOriginText(e.target.value);
+                  if (origin) onOriginChange(null);
+                }}
+                onFocus={() => setField('origin')}
+                placeholder="اختيار نقطة الانطلاق — موقعي الحالي"
+                className="w-full h-11 rounded-lg bg-[#f1f3f4] dark:bg-[#3c4043] px-3 text-sm font-semibold text-neutral-900 dark:text-[#e8eaed] outline-none border border-transparent focus:border-[#1a73e8] dark:focus:border-[#8ab4f8] focus:bg-white dark:focus:bg-[#202124]"
+              />
+              {origin && (
+                <p className="text-[11px] font-black font-mono text-neutral-900 dark:text-white px-1 mt-1" dir="ltr">
+                  {coordsLabel(origin.lat, origin.lng)}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-neutral-600 dark:text-zinc-300 mb-1">إلى (الوجهة)</p>
+              <input
+                value={destText}
+                onChange={(e) => setDestText(e.target.value)}
+                onFocus={() => setField('dest')}
+                placeholder={destination ? coordsLabel(destination.lat, destination.lng) : 'الوجهة'}
+                className="w-full h-11 rounded-lg bg-[#f1f3f4] dark:bg-[#3c4043] px-3 text-sm font-semibold text-neutral-900 dark:text-[#e8eaed] outline-none border border-transparent focus:border-[#1a73e8] dark:focus:border-[#8ab4f8] focus:bg-white dark:focus:bg-[#202124]"
+              />
+              {destination && (
+                <p className="text-[11px] font-black font-mono text-neutral-900 dark:text-white px-1 mt-1" dir="ltr">
+                  {coordsLabel(destination.lat, destination.lng)}
+                </p>
+              )}
+            </div>
           </div>
 
           <button
@@ -284,16 +299,16 @@ export default function DirectionsPanel({
                 <Crosshair className="w-4 h-4" />
               </span>
               <span className="flex-1 min-w-0">
-                <span className="block text-sm font-medium text-[#202124]">موقعي الحالي</span>
-                <span className="block text-[11px] text-[#5f6368]">
-                  {userLocation ? coordsLabel(userLocation.lat, userLocation.lng) : 'فعّل الموقع لاستخدام موقعك'}
+                <span className="block text-sm font-black text-neutral-950 dark:text-white">موقعي الحالي</span>
+                <span className="block text-[11px] font-bold text-neutral-800 dark:text-zinc-100">
+                  {userLocation ? coordsLabel(userLocation.lat, userLocation.lng) : 'فعّل الموقع لاستخدام موقعك كنقطة انطلاق'}
                 </span>
               </span>
             </button>
 
             {recentFiltered.length > 0 && (
               <>
-                <p className="px-4 pt-2 pb-1 text-[11px] font-bold text-[#5f6368] tracking-wide">الأخيرة / اقتراحات</p>
+                <p className="px-4 pt-2 pb-1 text-[11px] font-black text-neutral-800 dark:text-zinc-100 tracking-wide">الأخيرة / اقتراحات</p>
                 {recentFiltered.map((item) => (
                   <button
                     key={`${item.label}-${item.lat}`}
@@ -310,8 +325,8 @@ export default function DirectionsPanel({
                       <Clock className="w-4 h-4" />
                     </span>
                     <span className="flex-1 min-w-0">
-                      <span className="block text-sm text-[#202124] truncate">{item.label}</span>
-                      <span className="block text-[11px] text-[#5f6368] font-mono" dir="ltr">{coordsLabel(item.lat, item.lng)}</span>
+                      <span className="block text-sm font-bold text-neutral-950 dark:text-white truncate">{item.label}</span>
+                      <span className="block text-[11px] font-black font-mono text-neutral-800 dark:text-zinc-100" dir="ltr">{coordsLabel(item.lat, item.lng)}</span>
                     </span>
                   </button>
                 ))}
@@ -334,13 +349,13 @@ export default function DirectionsPanel({
                   <MapPin className="w-4 h-4" />
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm text-[#202124] truncate">{place.name}</span>
-                  <span className="block text-[11px] text-[#5f6368] truncate">{place.address || place.category_label}</span>
+                  <span className="block text-sm font-bold text-neutral-950 dark:text-white truncate">{place.name}</span>
+                  <span className="block text-[11px] font-bold text-neutral-800 dark:text-zinc-100 truncate">{place.address || place.category_label}</span>
                 </span>
               </button>
             ))}
 
-            {geoLoading && <p className="px-4 py-2 text-[12px] text-[#5f6368]">جاري البحث...</p>}
+            {geoLoading && <p className="px-4 py-2 text-[12px] font-bold text-neutral-800 dark:text-zinc-100">جاري البحث...</p>}
             {geoHits.map((hit) => (
               <button
                 key={`${hit.lat}-${hit.lng}-${hit.label}`}
@@ -357,33 +372,74 @@ export default function DirectionsPanel({
                   <MapPin className="w-4 h-4" />
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm text-[#202124] truncate">{hit.label.split(',')[0]}</span>
-                  <span className="block text-[11px] text-[#5f6368] truncate">{hit.label}</span>
+                  <span className="block text-sm font-bold text-neutral-950 dark:text-white truncate">{hit.label.split(',')[0]}</span>
+                  <span className="block text-[11px] font-bold text-neutral-800 dark:text-zinc-100 truncate">{hit.label}</span>
                 </span>
               </button>
             ))}
           </div>
         )}
 
+        {destination && (
+          <div className="route-from-to mx-3 mb-3 rounded-2xl bg-neutral-50 border border-neutral-200 p-3 dark:bg-white/5 dark:border-white/10">
+            <p className="text-[11px] font-bold text-neutral-900 dark:text-white mb-2">مسار من موقعك إلى الوجهة</p>
+            <div className="space-y-2 text-sm">
+              <div>
+                <p className="text-[10px] font-semibold text-neutral-600 dark:text-zinc-300">من</p>
+                <p className="font-semibold text-neutral-900 dark:text-white">{origin?.label || 'موقعي الحالي — بانتظار تحديد GPS'}</p>
+                {origin && (
+                  <p className="font-mono text-[12px] text-neutral-800 dark:text-zinc-200" dir="ltr">{coordsLabel(origin.lat, origin.lng)}</p>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-neutral-600 dark:text-zinc-300">إلى</p>
+                <p className="font-semibold text-neutral-900 dark:text-white">{destination.label}</p>
+                <p className="font-mono text-[12px] text-neutral-800 dark:text-zinc-200" dir="ltr">{coordsLabel(destination.lat, destination.lng)}</p>
+              </div>
+            </div>
+            {destPlace?.address && (
+              <p className="mt-2 text-[12px] font-medium text-neutral-800 dark:text-zinc-200">{destPlace.address}</p>
+            )}
+            {destPlace?.phone && (
+              <a
+                href={`tel:${destPlace.phone.replace(/\s+/g, '')}`}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand-400 text-neutral-950 px-3 py-1.5 text-[12px] font-bold no-underline"
+                dir="ltr"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                {destPlace.phone}
+              </a>
+            )}
+            {route && (
+              <p className="mt-3 text-base font-bold text-neutral-900 dark:text-white">
+                {formatRouteDistance(route.distanceKm)} · {formatRouteDuration(route.durationMin)}
+              </p>
+            )}
+            {!origin && (
+              <p className="mt-2 text-[12px] font-medium text-neutral-600 dark:text-zinc-300">فعّل الموقع لرسم المسار من GPS إلى السفارة/الوجهة</p>
+            )}
+          </div>
+        )}
+
         {showRoute && route && (
           <div className="px-4 pb-4 pt-1">
-            <p className="text-[28px] leading-none font-normal text-[#202124]">
+            <p className="text-[28px] leading-none font-black text-neutral-950 dark:text-white">
               {formatRouteDuration(route.durationMin)}
             </p>
-            <p className="text-sm text-[#5f6368] mt-1">
+            <p className="text-sm font-bold text-neutral-800 dark:text-zinc-100 mt-1">
               {formatRouteDistance(route.distanceKm)}
               {route.estimated ? ' · تقدير' : ''}
               {' · '}
               {MODES.find((m) => m.id === mode)?.label}
             </p>
             {route.notice && (
-              <p className="mt-2 text-[12px] text-[#5f6368] bg-[#f8f9fa] rounded-lg px-3 py-2">{route.notice}</p>
+              <p className="mt-2 text-[12px] font-bold text-neutral-900 dark:text-white bg-brand-400/20 rounded-lg px-3 py-2">{route.notice}</p>
             )}
             <div className="mt-4 space-y-3">
               {route.steps.slice(0, 24).map((step, i) => (
                 <div key={`${i}-${step}`} className="flex items-start gap-3">
-                  <span className="mt-1.5 w-2 h-2 rounded-full bg-[#1a73e8] shrink-0" />
-                  <p className="text-sm text-[#3c4043] leading-relaxed">{step}</p>
+                  <span className="mt-1.5 w-2 h-2 rounded-full bg-neutral-950 dark:bg-brand-400 shrink-0" />
+                  <p className="text-sm font-bold text-neutral-950 dark:text-white leading-relaxed">{step}</p>
                 </div>
               ))}
             </div>
@@ -391,7 +447,7 @@ export default function DirectionsPanel({
         )}
 
         {loading && (
-          <p className="px-4 py-6 text-sm text-[#5f6368]">جاري حساب المسار...</p>
+          <p className="px-4 py-6 text-sm font-bold text-neutral-900 dark:text-white">جاري حساب المسار من موقعك إلى الوجهة...</p>
         )}
         {error && !loading && (
           <p className="mx-4 mb-4 text-sm text-[#c5221f] bg-[#fce8e6] rounded-lg px-3 py-2">{error}</p>
@@ -399,7 +455,7 @@ export default function DirectionsPanel({
       </div>
 
       {destination && (
-        <div className="p-3 border-t border-[#dadce0] bg-white space-y-2">
+        <div className="p-3 border-t border-[#dadce0] bg-white dark:bg-[#292a2d] dark:border-white/10 space-y-2">
           <FlywayBookButton
             name={destination.label}
             lat={destination.lat}

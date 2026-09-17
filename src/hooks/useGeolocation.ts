@@ -21,7 +21,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const watchId = useRef<number | null>(null);
 
-  const stop = useCallback(() => {
+  const stopWatch = useCallback(() => {
     if (watchId.current != null && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchId.current);
       watchId.current = null;
@@ -35,6 +35,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       return;
     }
 
+    stopWatch();
     setStatus('prompt');
     setError(null);
 
@@ -65,12 +66,19 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         timeout: 12000,
       },
     );
-  }, []);
+  }, [stopWatch]);
+
+  const stop = useCallback(() => {
+    stopWatch();
+    setPosition(null);
+    setStatus('idle');
+    setError(null);
+  }, [stopWatch]);
 
   useEffect(() => {
     if (autoStart) start();
-    return () => stop();
-  }, [autoStart, start, stop]);
+    return () => stopWatch();
+  }, [autoStart, start, stopWatch]);
 
   return { position, status, error, start, stop };
 }

@@ -12,7 +12,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   exchange: '#06b6d4',
   mosques: '#7c3aed',
   transport: '#3b82f6',
-  embassy: '#64748b',
+  embassy: '#1d4ed8',
   police: '#dc2626',
   telecom: '#14b8a6',
   nightlife: '#6366f1',

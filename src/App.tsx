@@ -3,7 +3,6 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import Header from '@/components/Header';
 import ChatWidget from '@/components/ChatWidget';
 import MapNavigator from '@/components/MapNavigator';
-import TravelCompanion from '@/components/TravelCompanion';
 import HomePage from '@/pages/HomePage';
 import DirectoryPage from '@/pages/DirectoryPage';
 import VisasPage from '@/pages/VisasPage';
@@ -12,6 +11,7 @@ import InsurancePage from '@/pages/InsurancePage';
 import RewardsPage from '@/pages/RewardsPage';
 import DiscoverIraqPage from '@/pages/DiscoverIraqPage';
 import type { PageKey } from '@/types';
+import type { IraqiMission } from '@/lib/iraqiMissions';
 import { locationsEqual, locationIdentityEqual, resolveMapFocus, type AppLocation } from '@/lib/cityCoordinates';
 import {
   locationFromFallbackSession,
@@ -81,6 +81,23 @@ function AppContent() {
     setPage('navigator');
   };
 
+  const handleOpenMission = (mission: IraqiMission) => {
+    const loc: AppLocation = {
+      lat: mission.lat,
+      lng: mission.lng,
+      zoom: 17,
+      label: mission.nameAr,
+      country: mission.countryAr,
+      city: mission.cityAr,
+      district: mission.address,
+      categoryKey: 'embassy',
+      poiId: mission.id,
+    };
+    setAppLocation(loc);
+    writeSession({ view: 'navigator', ...locationToSessionPatch(loc) }, 'push');
+    setPage('navigator');
+  };
+
   const handleDirectoryNavigate = (filter: { country?: string; city?: string; district?: string; category?: string }) => {
     setDirectoryFilter(filter);
     setPage('directory');
@@ -123,15 +140,14 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100 transition-colors duration-300">
-      <Header currentPage={page} onNavigate={handleNavigate} />
+      <Header currentPage={page} onNavigate={handleNavigate} currentCountry={appLocation.country} onOpenMission={handleOpenMission} />
       <main>{pages[page]}</main>
+      <ChatWidget lifted={page === 'navigator'} />
       {page !== 'navigator' && (
         <footer className="text-center py-6 border-t border-neutral-200 dark:border-white/10 text-neutral-500 dark:text-zinc-500 text-xs">
           © 2025 FlywayGuide — دليل المسافر الذكي | للحجز والمعالجة: flyway.travel
         </footer>
       )}
-      <ChatWidget />
-      <TravelCompanion />
     </div>
   );
 }

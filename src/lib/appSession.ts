@@ -19,6 +19,7 @@ export interface AppSession {
   lat?: number;
   lng?: number;
   zoom?: number;
+  poiId?: string;
 }
 
 const PAGE_KEYS: PageKey[] = [
@@ -109,6 +110,8 @@ export function readUrlSession(search = window.location.search): Partial<AppSess
   if (lat != null) session.lat = lat;
   if (lng != null) session.lng = lng;
   if (zoom != null) session.zoom = zoom;
+  const poiId = params.get('poi');
+  if (poiId) session.poiId = poiId;
   return session;
 }
 
@@ -148,6 +151,7 @@ export function sanitizeSession(input: Partial<AppSession>): AppSession {
     lat: roundCoord(input.lat),
     lng: roundCoord(input.lng),
     zoom: Number.isFinite(input.zoom) ? Math.round(input.zoom as number) : undefined,
+    poiId: input.poiId?.trim() || undefined,
   };
 }
 
@@ -191,6 +195,7 @@ function toSearchParams(session: AppSession) {
     params.set('lng', session.lng.toFixed(5));
   }
   if (session.zoom != null) params.set('zoom', String(Math.round(session.zoom)));
+  if (session.poiId) params.set('poi', session.poiId);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }
@@ -263,6 +268,7 @@ export function locationToSessionPatch(loc: AppLocation): Partial<AppSession> {
     lat: loc.lat,
     lng: loc.lng,
     zoom: loc.zoom,
+    poiId: loc.poiId || '',
   };
 }
 
@@ -275,6 +281,7 @@ export function locationFromFallbackSession(session: AppSession): AppLocation {
       lng: session.lng,
       zoom: session.zoom ?? focused.zoom,
       label: session.label || focused.label,
+      poiId: session.poiId,
     };
   }
   return focused.city || focused.country ? focused : FALLBACK_MAP_CENTER;

@@ -166,6 +166,16 @@
   animation: slideContentIn 0.8s ease-out 0.3s both;
 }
 
+@keyframes fabPulse {
+  0% { box-shadow: 0 0 0 0 rgba(204, 255, 0, 0.55), 0 12px 40px rgba(0, 0, 0, 0.28); }
+  70% { box-shadow: 0 0 0 18px rgba(204, 255, 0, 0), 0 12px 40px rgba(0, 0, 0, 0.28); }
+  100% { box-shadow: 0 0 0 0 rgba(204, 255, 0, 0), 0 12px 40px rgba(0, 0, 0, 0.28); }
+}
+
+.fab-pulse {
+  animation: fabPulse 2.2s ease-out infinite;
+}
+
 @keyframes markerPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(204, 255, 0, 0.4); }
   50% { box-shadow: 0 0 0 8px rgba(204, 255, 0, 0); }
@@ -216,6 +226,9 @@
   width: 100%;
   height: 100%;
   direction: ltr !important;
+  isolation: isolate;
+  overflow: hidden;
+  z-index: 0 !important;
 }
 
 /* Tailwind preflight sets img { max-width:100%; height:auto } which breaks Leaflet tiles on zoom. */
@@ -240,11 +253,6 @@
 .waze-map .leaflet-overlay-pane svg {
   max-width: none !important;
   max-height: none !important;
-}
-
-.waze-map .leaflet-marker-pane,
-.waze-map .leaflet-overlay-pane {
-  z-index: 600;
 }
 
 .waze-marker {
@@ -538,6 +546,9 @@ html.light .text-on-photo * {
 }
 
 .gmaps-directions {
+  position: relative;
+  z-index: 80;
+  isolation: isolate;
   border-radius: 16px;
   color: #202124 !important;
   background: #fff !important;
@@ -550,12 +561,12 @@ html.light .text-on-photo * {
 }
 
 .gmaps-directions input::placeholder {
-  color: #80868b !important;
-  -webkit-text-fill-color: #80868b !important;
+  color: #5f6368 !important;
+  -webkit-text-fill-color: #5f6368 !important;
 }
 
 .gmaps-directions .gmaps-muted {
-  color: #5f6368 !important;
+  color: #3c4043 !important;
 }
 
 .gmaps-directions .gmaps-mode-active {
@@ -578,8 +589,60 @@ html.light .on-dark .gmaps-directions input {
 }
 
 html.light .on-dark .gmaps-directions input::placeholder {
-  color: #80868b !important;
-  -webkit-text-fill-color: #80868b !important;
+  color: #5f6368 !important;
+  -webkit-text-fill-color: #5f6368 !important;
+}
+
+.companion-panel {
+  color: #171717;
+}
+
+html.light .companion-panel,
+html.light .companion-panel [class*="text-neutral"],
+html.light .on-dark .companion-panel,
+html.light .on-dark .companion-panel [class*="text-neutral"] {
+  color: #171717;
+}
+
+html.light .companion-panel .text-red-600 { color: #dc2626 !important; }
+html.light .companion-panel .text-emerald-600 { color: #059669 !important; }
+html.light .companion-panel .text-orange-600 { color: #ea580c !important; }
+
+#flyway-searchable-menu {
+  background: #fff;
+  color: #171717;
+}
+
+html.light #flyway-searchable-menu {
+  background: #fff !important;
+  color: #171717 !important;
+}
+
+html.light #flyway-searchable-menu [class*="text-neutral"],
+html.light #flyway-searchable-menu input {
+  color: #171717 !important;
+}
+
+.place-sheet {
+  color: #171717;
+}
+
+html.dark .place-sheet {
+  color: #fafafa;
+}
+
+html.light .on-dark .place-sheet {
+  color: #171717;
+  background: #fff;
+}
+
+html.light .on-dark .place-sheet [class*="text-neutral"],
+html.light .on-dark .place-sheet [class*="text-slate"] {
+  color: #171717 !important;
+}
+
+html.light .on-dark .place-sheet [class*="text-zinc"] {
+  color: #3f3f46 !important;
 }
 
 html.dark .gmaps-directions {
@@ -600,7 +663,7 @@ html.dark .gmaps-directions input::placeholder {
 }
 
 html.dark .gmaps-directions .gmaps-muted {
-  color: #9aa0a6 !important;
+  color: #dadce0 !important;
 }
 
 html.dark .gmaps-directions .gmaps-mode {
@@ -618,9 +681,14 @@ html.dark .gmaps-directions .gmaps-mode-active {
   }
 }
 
-@keyframes hoverCardIn {
-  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.97); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+@keyframes placesDrawerEase {
+  from { opacity: 0.85; }
+  to { opacity: 1; }
+}
+
+.places-drawer {
+  transition: max-height 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: max-height;
 }
 
 .place-hover-card {

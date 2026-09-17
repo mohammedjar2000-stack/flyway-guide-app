@@ -232,40 +232,40 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
 
               {selected.address && (
                 <div className="rounded-xl p-3 flex items-start gap-2 bg-neutral-50 border border-neutral-200">
-                  <MapPin className="w-4 h-4 text-neutral-900 shrink-0 mt-0.5" />
+                  <MapPin className="w-4 h-4 text-neutral-800 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs text-neutral-500 font-medium mb-0.5">العنوان</p>
-                    <p className="text-neutral-900 text-sm">{selected.address}</p>
+                    <p className="text-xs text-neutral-600 font-semibold mb-0.5">العنوان</p>
+                    <p className="text-neutral-900 text-sm font-medium">{selected.address}</p>
                   </div>
                 </div>
               )}
 
               {selected.proximity_note && (
                 <div className="rounded-xl p-3 flex items-start gap-2 bg-neutral-50 border border-neutral-200">
-                  <Compass className="w-4 h-4 text-neutral-900 shrink-0 mt-0.5" />
+                  <Compass className="w-4 h-4 text-neutral-800 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs text-neutral-500 font-medium mb-0.5">القرب من المعالم</p>
-                    <p className="text-neutral-900 text-sm">{selected.proximity_note}</p>
+                    <p className="text-xs text-neutral-600 font-semibold mb-0.5">القرب من المعالم</p>
+                    <p className="text-neutral-900 text-sm font-medium">{selected.proximity_note}</p>
                   </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 {selected.phone && (
-                  <div className="rounded-xl p-3 flex items-center gap-2 bg-neutral-50 border border-neutral-200">
-                    <Phone className="w-4 h-4 text-neutral-900" />
+                  <a href={`tel:${selected.phone.replace(/\s+/g, '')}`} className="rounded-xl p-3 flex items-center gap-2 bg-neutral-50 border border-neutral-200 text-neutral-900 no-underline">
+                    <Phone className="w-4 h-4 text-neutral-800" />
                     <div>
-                      <p className="text-xs text-neutral-500 font-medium">الهاتف</p>
-                      <p className="text-neutral-900 text-sm" dir="ltr">{selected.phone}</p>
+                      <p className="text-xs text-neutral-600 font-semibold">الهاتف</p>
+                      <p className="text-neutral-900 text-sm font-semibold" dir="ltr">{selected.phone}</p>
                     </div>
-                  </div>
+                  </a>
                 )}
                 {selected.hours && (
                   <div className="rounded-xl p-3 flex items-center gap-2 bg-neutral-50 border border-neutral-200">
-                    <Clock className="w-4 h-4 text-neutral-900" />
+                    <Clock className="w-4 h-4 text-neutral-800" />
                     <div>
-                      <p className="text-xs text-neutral-500 font-medium">ساعات العمل</p>
-                      <p className="text-neutral-900 text-sm">{selected.hours}</p>
+                      <p className="text-xs text-neutral-600 font-semibold">ساعات العمل</p>
+                      <p className="text-neutral-900 text-sm font-medium">{selected.hours}</p>
                     </div>
                   </div>
                 )}

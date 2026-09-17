@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ChevronUp, Crosshair, List, Navigation, Route, X,
+  Crosshair, List, Navigation, Route, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { haversineKm, type MapBounds } from '@/lib/geo';
@@ -12,12 +12,14 @@ import MapView from '@/components/map/MapView';
 import CategoryFilterBar from '@/components/map/CategoryFilterBar';
 import PlaceDetailsSheet from '@/components/map/PlaceDetailsSheet';
 import PlacesList from '@/components/map/PlacesList';
+import PlacesDrawer from '@/components/map/PlacesDrawer';
 import PlaceHoverCard from '@/components/map/PlaceHoverCard';
 import DirectionsPanel from '@/components/map/DirectionsPanel';
 import LiveNavOverlay from '@/components/map/LiveNavOverlay';
 import { usePlacePreview } from '@/hooks/usePlacePreview';
 import { DEFAULT_MAP_CENTER } from '@/lib/mapConfig';
 import { FALLBACK_MAP_CENTER, bboxAround, getCityBoundingBox, locationIdentityEqual, resolveCatalogCity, safeMapCenter, type AppLocation } from '@/lib/cityCoordinates';
+import { getMissionById, missionToListing } from '@/lib/iraqiMissions';
 import { reverseGeocode } from '@/services/geocode';
 import { rememberPlace } from '@/lib/routeHistory';
 import { planRoute, pointFromCoords, type RoutePoint, type RouteResult, type TravelMode } from '@/lib/routing';
@@ -31,7 +33,7 @@ interface MapNavigatorProps {
 
 export default function MapNavigator({ searchLocation, onLocationChange, onCameraChange }: MapNavigatorProps) {
   const hasChosenPlace = Boolean(searchLocation?.city || searchLocation?.district);
-  const geo = useGeolocation({ autoStart: !hasChosenPlace });
+  const geo = useGeolocation({ autoStart: false });
 
   const [dbListings, setDbListings] = useState<DirectoryListing[]>([]);
   const [dbLoading, setDbLoading] = useState(true);
@@ -58,9 +60,19 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   const [focusedItem, setFocusedItem] = useState<DirectoryListing | null>(null);
   const [followUser, setFollowUser] = useState(false);
   const [flyToken, setFlyToken] = useState(0);
-  const [listOpen, setListOpen] = useState(false);
+  const [listExpanded, setListExpanded] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const saved = window.localStorage.getItem('flyway.placesPane');
+      if (saved === 'collapsed') return false;
+      if (saved === 'expanded') return true;
+    } catch {
+      /* ignore */
+    }
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
 
-  const [directionsOpen, setDirectionsOpen] = useState(true);
+  const [directionsOpen, setDirectionsOpen] = useState(false);
   const [originPoint, setOriginPoint] = useState<RoutePoint | null>(null);
   const [destPoint, setDestPoint] = useState<RoutePoint | null>(null);
   const [travelMode, setTravelMode] = useState<TravelMode>('driving');
@@ -71,7 +83,8 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   const [routeField, setRouteField] = useState<'origin' | 'dest'>('origin');
   const [navigating, setNavigating] = useState(false);
   const [geoBannerDismissed, setGeoBannerDismissed] = useState(false);
-  const didAutoLocate = useRef(false);
+  const [locationAttempted, setLocationAttempted] = useState(false);
+  const pendingLocate = useRef(false);
   const { preview, show: showPreview, hide: hidePreview, clear: clearPreview } = usePlacePreview();
 
   useEffect(() => {
@@ -103,16 +116,18 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setZoom(safe.zoom);
     setFollowUser(false);
     setFlyToken((t) => t + 1);
-    const cityBox = getCityBoundingBox(
-      resolveCatalogCity({
-        city: next.city,
-        country: next.country,
-        district: next.district,
-        lat: safe.lat,
-        lng: safe.lng,
-      })?.name || next.city,
-      22,
-    ) ?? bboxAround(safe.lat, safe.lng, 22);
+    const cityBox = next.poiId
+      ? bboxAround(safe.lat, safe.lng, 1.2)
+      : getCityBoundingBox(
+          resolveCatalogCity({
+            city: next.city,
+            country: next.country,
+            district: next.district,
+            lat: safe.lat,
+            lng: safe.lng,
+          })?.name || next.city,
+          22,
+        ) ?? bboxAround(safe.lat, safe.lng, 22);
     if (cityBox) setBounds(cityBox);
     if (opts?.resetRoute !== false) {
       setRouteData(null);
@@ -128,7 +143,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   useEffect(() => {
     if (!searchLocation) return;
     if (lastFocus.current && locationIdentityEqual(lastFocus.current, searchLocation)) return;
-    flyToLocation(searchLocation);
+    flyToLocation(searchLocation, { resetRoute: !searchLocation.poiId });
   }, [searchLocation, flyToLocation]);
 
   const handleCitySelect = useCallback((next: AppLocation) => {
@@ -136,17 +151,17 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     onLocationChange?.(next);
   }, [flyToLocation, onLocationChange]);
 
-  useEffect(() => {
-    if (didAutoLocate.current || customLoc || searchLocation || !geo.position) return;
-    didAutoLocate.current = true;
-    setFollowUser(true);
-    setFlyToken((t) => t + 1);
-  }, [geo.position, customLoc, searchLocation]);
-
   const awaitingGpsOrigin = useRef(false);
 
   useEffect(() => {
-    if (!geo.position || !awaitingGpsOrigin.current) return;
+    if (!geo.position) return;
+    if (pendingLocate.current) {
+      pendingLocate.current = false;
+      setCustomLoc(null);
+      setFollowUser(true);
+      setFlyToken((t) => t + 1);
+    }
+    if (!awaitingGpsOrigin.current) return;
     awaitingGpsOrigin.current = false;
     setOriginPoint({
       label: 'موقعي الحالي',
@@ -155,6 +170,14 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       source: 'gps',
     });
   }, [geo.position]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('flyway.placesPane', listExpanded ? 'expanded' : 'collapsed');
+    } catch {
+      /* ignore */
+    }
+  }, [listExpanded]);
 
   useEffect(() => {
     if (!originPoint || !destPoint) {
@@ -197,9 +220,6 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     if (!hasChosenPlace && followUser && geo.position) {
       return safeMapCenter(geo.position.lat, geo.position.lng, 16);
     }
-    if (!hasChosenPlace && geo.position) {
-      return safeMapCenter(geo.position.lat, geo.position.lng, 15);
-    }
     return {
       lat: DEFAULT_MAP_CENTER.lat,
       lng: DEFAULT_MAP_CENTER.lng,
@@ -239,6 +259,10 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     const m = Math.round((km / 5) * 60);
     return m < 60 ? `${m} دقيقة` : `${Math.floor(m / 60)} س ${m % 60} د`;
   };
+  const estDriveTime = (km: number) => {
+    const m = Math.max(1, Math.round((km / 35) * 60));
+    return m < 60 ? `${m} د` : `${Math.floor(m / 60)} س ${m % 60} د`;
+  };
 
   const applyRoutePoint = useCallback((field: 'origin' | 'dest', point: RoutePoint) => {
     rememberPlace(point);
@@ -247,8 +271,56 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setPickOnMap(false);
   }, []);
 
+  const requestMyLocation = useCallback(() => {
+    setLocationAttempted(true);
+    pendingLocate.current = true;
+    awaitingGpsOrigin.current = true;
+    geo.start();
+    setFollowUser(true);
+    if (geo.position) {
+      pendingLocate.current = false;
+      awaitingGpsOrigin.current = false;
+      setCustomLoc(null);
+      setFlyToken((t) => t + 1);
+      setOriginPoint({
+        label: 'موقعي الحالي',
+        lat: geo.position.lat,
+        lng: geo.position.lng,
+        source: 'gps',
+      });
+    }
+  }, [geo]);
+
   const ensureGpsOrigin = useCallback(() => {
-    if (originPoint?.source === 'gps') return;
+    if (!geo.position) return;
+    const sameAsDest = (lat: number, lng: number) => {
+      if (!destPoint) return false;
+      return Math.abs(lat - destPoint.lat) < 0.00025
+        && Math.abs(lng - destPoint.lng) < 0.00025;
+    };
+    if (sameAsDest(geo.position.lat, geo.position.lng)) return;
+    setOriginPoint({
+      label: 'موقعي الحالي',
+      lat: geo.position.lat,
+      lng: geo.position.lng,
+      source: 'gps',
+    });
+  }, [destPoint, geo.position]);
+
+  useEffect(() => {
+    if (!searchLocation?.poiId) return;
+    const mission = getMissionById(searchLocation.poiId);
+    if (!mission) return;
+    const listing = missionToListing(mission);
+    setDestPoint({
+      label: mission.nameAr,
+      lat: mission.lat,
+      lng: mission.lng,
+      source: 'geocode',
+    });
+    setSelected(listing);
+    setFocusedItem(listing);
+    setDirectionsOpen(true);
     if (geo.position) {
       setOriginPoint({
         label: 'موقعي الحالي',
@@ -256,39 +328,21 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         lng: geo.position.lng,
         source: 'gps',
       });
-      return;
+    } else {
+      setOriginPoint(null);
     }
-    if (!originPoint) {
-      if (customLoc) {
-        setOriginPoint({
-          label: customLoc.label || 'نقطة الانطلاق',
-          lat: customLoc.lat,
-          lng: customLoc.lng,
-          source: 'geocode',
-        });
-      } else if (searchLocation) {
-        setOriginPoint({
-          label: searchLocation.label || 'نقطة الانطلاق',
-          lat: searchLocation.lat,
-          lng: searchLocation.lng,
-          source: 'geocode',
-        });
-      }
-    }
-    awaitingGpsOrigin.current = true;
-    geo.start();
-  }, [originPoint, geo, customLoc, searchLocation]);
+  }, [searchLocation?.poiId, searchLocation?.lat, searchLocation?.lng]);
 
   const handleItemClick = useCallback((item: DirectoryListing) => {
     clearPreview();
     const point = pointFromCoords(item.lat, item.lng, item.name, 'place');
     if (point) applyRoutePoint('dest', point);
     setFocusedItem(item);
-    setListOpen(false);
-    ensureGpsOrigin();
+    setListExpanded(false);
+    if (geo.position) ensureGpsOrigin();
     if (directionsOpen || navigating) return;
     setSelected(item);
-  }, [applyRoutePoint, clearPreview, directionsOpen, navigating, ensureGpsOrigin]);
+  }, [applyRoutePoint, clearPreview, directionsOpen, navigating, ensureGpsOrigin, geo.position]);
 
   const handleCategoriesChange = useCallback((next: string[]) => {
     setFocusedItem(null);
@@ -309,14 +363,17 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setDirectionsOpen(true);
     setTravelMode((m) => (m === 'walking' ? 'walking' : 'driving'));
     setRouteField('origin');
-    setListOpen(false);
-    ensureGpsOrigin();
+    setListExpanded(false);
+    if (geo.position) ensureGpsOrigin();
   };
 
   const closeDirections = () => {
     setDirectionsOpen(false);
     setPickOnMap(false);
-    if (focusedItem && !navigating) setSelected(focusedItem);
+    if (focusedItem && !navigating) {
+      setSelected(focusedItem);
+      setListExpanded(false);
+    }
   };
 
   const startLiveNavigation = () => {
@@ -328,7 +385,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setSelected(null);
     setFollowUser(true);
     setFlyToken((t) => t + 1);
-    geo.start();
+    if (!geo.position) requestMyLocation();
   };
 
   const stopLiveNavigation = () => {
@@ -349,20 +406,15 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     applyRoutePoint('dest', fallback);
     setSelected(null);
     setDirectionsOpen(true);
-    if (!originPoint) {
-      if (geo.position) {
-        setOriginPoint({
-          label: 'موقعي الحالي',
-          lat: geo.position.lat,
-          lng: geo.position.lng,
-          source: 'gps',
-        });
-      } else {
-        awaitingGpsOrigin.current = true;
-        geo.start();
-      }
+    if (geo.position && !originPoint) {
+      setOriginPoint({
+        label: 'موقعي الحالي',
+        lat: geo.position.lat,
+        lng: geo.position.lng,
+        source: 'gps',
+      });
     }
-  }, [applyRoutePoint, originPoint, geo]);
+  }, [applyRoutePoint, originPoint, geo.position]);
 
   const swapRoute = () => {
     if (!originPoint || !destPoint) return;
@@ -371,18 +423,14 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   };
 
   const locateMe = () => {
-    geo.start();
-    setCustomLoc(null);
-    setFollowUser(true);
-    setFlyToken((t) => t + 1);
-    if (destPoint && geo.position) {
-      applyRoutePoint('origin', {
-        label: 'موقعي الحالي',
-        lat: geo.position.lat,
-        lng: geo.position.lng,
-        source: 'gps',
-      });
+    if (followUser && (geo.status === 'watching' || geo.status === 'prompt')) {
+      geo.stop();
+      setFollowUser(false);
+      pendingLocate.current = false;
+      awaitingGpsOrigin.current = false;
+      return;
     }
+    requestMyLocation();
   };
 
   const onViewportChange = useCallback((nextBounds: MapBounds, nextZoom: number, center: { lat: number; lng: number }) => {
@@ -401,11 +449,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setRouteField(field);
   }, []);
 
-  const selectedDist = selected ? calcDistanceKm(selected.lat, selected.lng) : null;
+  const selectedDist = selected && geo.position
+    ? haversineKm(geo.position.lat, geo.position.lng, selected.lat, selected.lng)
+    : null;
 
   return (
     <div className="on-dark relative h-[calc(100dvh-4rem)] overflow-hidden bg-neutral-950">
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 isolate overflow-hidden">
         <MapView
             center={mapCenter}
             flyToken={flyToken}
@@ -445,7 +495,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
             <CategoryFilterBar selected={selectedCategories} onChange={handleCategoriesChange} />
           </div>
         </div>
-        {(customLoc || tooZoomedOut || (loading && listings.length === 0) || error || fromFallback) && (
+        {(customLoc || tooZoomedOut || (loading && listings.length === 0) || error || fromFallback || (locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed)) && (
           <div className="pointer-events-auto shrink-0 flex flex-wrap items-center gap-2 text-[11px]">
             {customLoc && (
               <span className="inline-flex items-center gap-1.5 bg-black/55 text-white rounded-full px-3 py-1 border border-white/10">
@@ -468,7 +518,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
                 تعذر جلب البيانات — اضغط لإعادة المحاولة
               </button>
             )}
-            {(geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed && (
+            {(locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed) && (
               <span className="inline-flex items-center gap-2 bg-black/70 text-amber-100 rounded-full px-3 py-1 border border-amber-400/30">
                 <span>{geo.error || 'لم يتم تفعيل الموقع — يمكنك البحث أو تحريك الخريطة يدوياً'}</span>
                 <button type="button" onClick={locateMe} className="underline cursor-pointer">تفعيل</button>
@@ -479,12 +529,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
             )}
           </div>
         )}
-        <div className="flex-1 min-h-0 flex items-stretch gap-3" dir="ltr">
+        <div className="flex-1 min-h-0 flex items-stretch gap-3 relative z-50" dir="ltr">
           {directionsOpen && (
             <div className="pointer-events-auto w-full lg:w-[380px] shrink-0 min-h-0 max-h-[58vh] lg:max-h-none lg:my-0">
               <DirectionsPanel
                 origin={originPoint}
                 destination={destPoint}
+                destinationPlace={focusedItem}
                 userLocation={geo.position}
                 nearbyPlaces={listings}
                 mode={travelMode}
@@ -499,40 +550,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
                 onSwap={swapRoute}
                 onClose={closeDirections}
                 onUseMyLocation={() => {
-                  geo.start();
-                  if (geo.position) {
-                    applyRoutePoint(routeField, {
-                      label: 'موقعي الحالي',
-                      lat: geo.position.lat,
-                      lng: geo.position.lng,
-                      source: 'gps',
-                    });
-                  }
+                  requestMyLocation();
                 }}
                 onPickOnMapChange={setPickOnMap}
                 onStartNavigation={startLiveNavigation}
               />
             </div>
           )}
-          <div className="hidden lg:block pointer-events-auto w-[360px] ms-auto min-h-0">
-            <div className="h-full gmaps-surface rounded-3xl border border-slate-200/80 bg-white/95 shadow-[0_12px_40px_rgba(15,23,42,0.22)] p-3 overflow-y-auto dark:border-white/10 dark:bg-neutral-900/92">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <p className="text-slate-500 text-xs font-medium dark:text-zinc-400">{listings.length} مكان في نطاق الخريطة</p>
-              </div>
-              <PlacesList
-                items={listings}
-                loading={(loading || dbLoading) && listings.length === 0}
-                activeId={focusedItem?.id}
-                onSelect={handleItemClick}
-                onPreview={showPreview}
-                onPreviewEnd={hidePreview}
-                formatDistance={(item) => {
-                  const km = calcDistanceKm(item.lat, item.lng);
-                  return km == null ? null : formatDistance(km);
-                }}
-              />
-            </div>
-          </div>
         </div>
       </div>
       )}
@@ -548,7 +572,9 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         />
       )}
 
-      <div className="absolute z-20 bottom-36 end-4 flex flex-col gap-2">
+      <div className={`absolute z-40 end-4 flex flex-col gap-2 ${
+        !navigating && !directionsOpen && listExpanded ? 'bottom-[min(58vh,580px)]' : 'bottom-24'
+      }`}>
         {!directionsOpen && !navigating && (
         <button
           type="button"
@@ -562,9 +588,10 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         {!directionsOpen && !navigating && (
         <button
           type="button"
-          onClick={() => setListOpen((v) => !v)}
-          className="lg:hidden w-12 h-12 rounded-full bg-brand-950/90 border border-white/15 text-white shadow-xl flex items-center justify-center cursor-pointer"
-          aria-label="قائمة الأماكن"
+          onClick={() => setListExpanded((v) => !v)}
+          className="w-12 h-12 rounded-full bg-white border-2 border-neutral-900 text-neutral-950 shadow-xl flex items-center justify-center cursor-pointer dark:bg-neutral-950 dark:border-white dark:text-white"
+          aria-label={listExpanded ? 'طي قائمة الأماكن' : 'عرض قائمة الأماكن'}
+          aria-pressed={listExpanded}
         >
           <List className="w-5 h-5" />
         </button>
@@ -575,19 +602,22 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
           className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
             followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-neutral-950/90 border-white/15 text-white'
           }`}
-          aria-label="موقعي الحالي"
+          aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
+          aria-pressed={followUser}
         >
           <Navigation className="w-5 h-5" />
         </button>
       </div>
 
-      {listOpen && !directionsOpen && !navigating && (
-        <div className="lg:hidden absolute inset-x-3 bottom-3 z-30 max-h-[55%] gmaps-surface rounded-3xl border border-slate-200/80 bg-white/95 shadow-2xl p-3 overflow-hidden flex flex-col">
-          <button type="button" onClick={() => setListOpen(false)} className="mx-auto mb-2 text-slate-400 cursor-pointer">
-            <ChevronUp className="w-5 h-5" />
-          </button>
-          <p className="text-slate-500 text-xs mb-2">{listings.length} مكان</p>
-          <div className="overflow-y-auto">
+      {!navigating && (
+        <div className={`absolute z-50 inset-x-3 bottom-3 lg:inset-x-auto lg:w-[360px] lg:end-4 pointer-events-none ${
+          directionsOpen ? 'hidden lg:block' : ''
+        }`}>
+          <PlacesDrawer
+            expanded={listExpanded}
+            onToggle={() => setListExpanded((v) => !v)}
+            count={listings.length}
+          >
             <PlacesList
               items={listings}
               loading={(loading || dbLoading) && listings.length === 0}
@@ -600,15 +630,19 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
                 return km == null ? null : formatDistance(km);
               }}
             />
-          </div>
+          </PlacesDrawer>
         </div>
       )}
 
       {selected && !directionsOpen && !navigating && (
         <PlaceDetailsSheet
           place={selected}
-          distanceLabel={selectedDist != null ? `${formatDistance(selectedDist)} • ${estWalkTime(selectedDist)} مشياً` : null}
-          origin={geo.position ?? origin}
+          distanceLabel={selectedDist != null
+            ? (selectedDist > 3
+              ? `${formatDistance(selectedDist)} • ${estDriveTime(selectedDist)} بالسيارة`
+              : `${formatDistance(selectedDist)} • ${estWalkTime(selectedDist)} مشياً`)
+            : null}
+          origin={geo.position}
           onClose={() => {
             setSelected(null);
           }}

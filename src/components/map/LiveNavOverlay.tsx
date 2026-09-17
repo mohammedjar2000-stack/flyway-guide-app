@@ -26,7 +26,7 @@ export default function LiveNavOverlay({
   const stepIdx = route
     ? currentStepIndex(route.steps, remaining.length, route.coordinates.length)
     : 0;
-  const nextStep = route?.steps?.[stepIdx] || 'اتبع المسار الأزرق نحو الوجهة';
+    const nextStep = route?.steps?.[stepIdx] || 'اتبع المسار الأسود المضيء نحو الوجهة';
   const laterSteps = route?.steps?.slice(stepIdx + 1, stepIdx + 4) ?? [];
 
   return (
@@ -42,14 +42,15 @@ export default function LiveNavOverlay({
         </button>
         <div className="flex-1 min-w-0 rounded-2xl bg-neutral-950/90 border border-brand-400/40 text-white px-4 py-2 shadow-[0_0_20px_rgba(204,255,0,0.18)]">
           <p className="text-lg font-black leading-none">
-            {loading ? '...' : route ? formatRouteDuration(route.durationMin) : '--'}
+          {loading ? '...' : route ? formatRouteDuration(route.durationMin) : '--'}
           </p>
           <p className="text-[11px] text-brand-300 mt-1 truncate">
-            {route ? formatRouteDistance(route.distanceKm) : ''}
+            {userPosition ? `من موقعك` : 'من نقطة الانطلاق'}
+            {' → '}
+            {destination.label}
+            {route ? ` · ${formatRouteDistance(route.distanceKm)}` : ''}
             {' · '}
             {walking ? 'مشي' : 'قيادة'}
-            {' · '}
-            {destination.label}
           </p>
         </div>
         <button
@@ -68,10 +69,10 @@ export default function LiveNavOverlay({
             {walking ? <Footprints className="w-7 h-7 text-white" /> : <Car className="w-7 h-7 text-white" />}
           </div>
           <div className="flex-1 min-w-0 p-4">
-            <p className="text-[11px] font-bold text-[#5f6368]">الخطوة التالية</p>
-            <p className="text-base font-black text-[#202124] leading-snug mt-0.5">{nextStep}</p>
+            <p className="text-[11px] font-black text-neutral-800">الخطوة التالية</p>
+            <p className="text-base font-black text-neutral-950 leading-snug mt-0.5">{nextStep}</p>
             {laterSteps[0] && (
-              <p className="text-xs text-[#5f6368] mt-1 truncate">ثم {laterSteps[0]}</p>
+              <p className="text-xs font-bold text-neutral-800 mt-1 truncate">ثم {laterSteps[0]}</p>
             )}
           </div>
         </div>

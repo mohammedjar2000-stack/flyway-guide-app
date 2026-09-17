@@ -195,7 +195,15 @@ export async function planRoute(
   }
 
   if (lastError && signal?.aborted) throw lastError;
-  return null;
+  return {
+    coordinates: greatCircle(start, end),
+    distanceKm: km,
+    durationMin: Math.max(1, Math.round((km / (mode === 'walking' ? 5 : mode === 'cycling' ? 16 : 50)) * 60)),
+    steps: ['اتبع المسار نحو الوجهة', 'الوصول إلى الوجهة'],
+    mode,
+    estimated: true,
+    notice: 'مسار تقديري مباشر ريثما تتوفر تفاصيل الطريق',
+  };
 }
 
 export function pointFromCoords(lat: number, lng: number, label: string, source: RoutePoint['source']): RoutePoint | null {
