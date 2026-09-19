@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Clock, Copy, MapPin, Navigation, Phone, Star, X } from 'lucide-react';
+import { Clock, Copy, Globe, MapPin, Navigation, Phone, Star, X } from 'lucide-react';
 import type { DirectoryListing } from '@/types';
 import { parseHours } from '@/lib/hours';
 import FlywayBookButton from '@/components/map/FlywayBookButton';
@@ -225,6 +225,21 @@ export default function PlaceBottomSheet({
               </InfoField>
             )}
 
+            {place.website ? (
+              <a
+                href={place.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-2xl bg-neutral-50 border border-neutral-200 px-3 py-2.5 flex items-center gap-2.5 text-neutral-900 no-underline hover:bg-lime-50 dark:bg-white/5 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+              >
+                <Globe className="w-4 h-4 text-neutral-800 dark:text-brand-400 shrink-0" />
+                <div className="text-right flex-1 min-w-0">
+                  <p className="text-[11px] text-neutral-600 dark:text-zinc-300 font-semibold" dir="rtl">الموقع الرسمي</p>
+                  <p className="text-sm font-bold tracking-wide truncate" dir="ltr">{place.website}</p>
+                </div>
+              </a>
+            ) : null}
+
             <div className="rounded-2xl bg-neutral-50 border border-neutral-200 px-3 py-2.5 flex items-center gap-2.5 dark:bg-white/5 dark:border-white/10">
               <MapPin className="w-4 h-4 text-neutral-800 dark:text-white shrink-0" />
               <div className="flex-1 min-w-0">
@@ -243,14 +258,6 @@ export default function PlaceBottomSheet({
               </button>
             </div>
           </div>
-
-          {place.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              {place.tags.map((tag) => (
-                <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-brand-400 text-neutral-950 border border-brand-500 font-semibold">{tag}</span>
-              ))}
-            </div>
-          )}
 
           {mapsQuery && googleHref && wazeHref && appleHref && (
             <>

@@ -9,26 +9,29 @@ import { sanitizePin } from '@/lib/placePrecision';
 interface MapMarkerProps {
   place: DirectoryListing;
   active?: boolean;
+  highlighted?: boolean;
   onSelect: (place: DirectoryListing) => void;
   onPreview?: (place: DirectoryListing, x: number, y: number, source: PreviewSource) => void;
   onPreviewEnd?: () => void;
 }
 
-function MapMarker({ place, active = false, onSelect, onPreview, onPreviewEnd }: MapMarkerProps) {
+function MapMarker({ place, active = false, highlighted = false, onSelect, onPreview, onPreviewEnd }: MapMarkerProps) {
   const pin = sanitizePin(place.lat, place.lng);
   if (!pin) return null;
   const pinned = { ...place, lat: pin.lat, lng: pin.lng };
   return (
     <Marker
       position={[pin.lat, pin.lng]}
-      icon={getListingIcon(place, active)}
-      zIndexOffset={active ? 800 : 0}
+      icon={getListingIcon(place, active, highlighted && !active)}
+      zIndexOffset={active ? 900 : highlighted ? 700 : 0}
       eventHandlers={{
         click: () => onSelect(pinned),
         mouseover: (e: LeafletMouseEvent) => {
-          const oe = e.originalEvent as MouseEvent | undefined;
-          if (!oe || oe.pointerType === 'touch') return;
-          onPreview?.(pinned, oe.clientX, oe.clientY, 'marker');
+          const oe = e.originalEvent as PointerEvent | MouseEvent | undefined;
+          if (oe && 'pointerType' in oe && oe.pointerType === 'touch') return;
+          const x = oe && 'clientX' in oe ? oe.clientX : 0;
+          const y = oe && 'clientY' in oe ? oe.clientY : 0;
+          onPreview?.(pinned, x, y, 'marker');
         },
         mouseout: () => onPreviewEnd?.(),
       }}

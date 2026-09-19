@@ -89,6 +89,7 @@ export interface DirectoryListing {
   review_count: number;
   created_at: string;
   nav_query?: string;
+  website?: string;
 }
 
 export interface Neighborhood {
@@ -170,9 +171,10 @@ export const CATEGORIES: CategoryDef[] = [
   { key: 'mosques', label: 'مساجد ومصليات', shortLabel: 'مساجد ومصليات', icon: 'Landmark', filters: ['مصلى نساء', 'قريب من الأسواق', 'تاريخي'] },
   { key: 'transport', label: 'شركات تأجير سيارات ونقل', shortLabel: 'تأجير ونقل', icon: 'Car', filters: ['رخصة دولية', 'تأمين شامل', 'سائق عربي'] },
   { key: 'embassy', label: 'مراكز شرطة وسفارة عراقية', shortLabel: 'سفارة وشرطة', icon: 'Shield', filters: ['خط طوارئ', 'متعدد اللغات'] },
-  { key: 'telecom', label: 'مزودو اتصالات وبطاقات SIM', shortLabel: 'اتصالات وSIM', icon: 'Smartphone', filters: ['باقة سياحية', 'تفعيل فوري بالجواز'] },
+  { key: 'telecom', label: 'مزودو اتصالات وبطاقات SIM و eSIM', shortLabel: 'اتصالات و eSIM', icon: 'Smartphone', filters: ['باقة سياحية', 'تفعيل فوري بالجواز', 'eSIM'] },
   { key: 'nightlife', label: 'حياة ليلية وأنشطة مسائية', shortLabel: 'أنشطة مسائية', icon: 'Moon', filters: ['عائلي', 'مساءً', 'واجهة مائية'] },
   { key: 'salons', label: 'صالونات ومراكز عناية شخصية', shortLabel: 'صالونات وعناية', icon: 'Scissors', filters: ['حجز مسبق', 'أسعار منصفة', 'سيدات فقط'] },
-  { key: 'fuel', label: 'محطات وقود وخدمات طرق ومخابز', shortLabel: 'وقود وطرق ومخابز', icon: 'Fuel', filters: ['استراحة', 'مقهى', 'صيانة سريعة', '24/7'] },
-  { key: 'bakeries', label: 'مخبزات وسوبر ماركت', shortLabel: 'مخبزات وسوبر ماركت', icon: 'ShoppingCart', filters: ['حلال', '24/7', 'منتجات يومية', 'طازج'] },
+  { key: 'fuel', label: 'محطات وقود', shortLabel: 'وقود', icon: 'Fuel', filters: ['24/7', 'أوبيت', 'شل', 'بترول أوفيسي'] },
+  { key: 'bakeries', label: 'مخابز وسوبر ماركت', shortLabel: 'مخابز وسوبر ماركت', icon: 'ShoppingCart', filters: ['مخبز', 'سوبر ماركت', 'حلال', '24/7'] },
+  { key: 'airports', label: 'مطارات إسطنبول وتركيا', shortLabel: 'المطارات', icon: 'PlaneTakeoff', filters: ['IATA', 'مترو', 'حافلات المطار', 'تاكسي'] },
 ];

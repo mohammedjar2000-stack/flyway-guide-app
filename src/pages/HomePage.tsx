@@ -4,7 +4,7 @@ import {
   Banknote, Landmark, Car, Shield, Smartphone, Moon, Scissors, Fuel,
   ShoppingCart, MapPin, Star, TrendingUp, Compass,
   Sparkles, Globe, Zap, Navigation, Search, Crosshair, Building2,
-  ChevronDown,
+  ChevronDown, PlaneTakeoff,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Country, Promo, PageKey } from '@/types';
@@ -27,6 +27,7 @@ import {
   type AppLocation,
 } from '@/lib/cityCoordinates';
 import { geocodePlace, reverseGeocode, type GeoHit } from '@/services/geocode';
+import { formatPlaceCount, useCategoryCounts } from '@/hooks/useCategoryCounts';
 
 interface HomePageProps {
   onNavigate: (page: PageKey) => void;
@@ -38,7 +39,7 @@ interface HomePageProps {
 
 const iconMap: Record<string, typeof Hotel> = {
   Hotel, UtensilsCrossed, Stethoscope, Pill, ShoppingBag, Camera,
-  Banknote, Landmark, Car, Shield, Smartphone, Moon, Scissors, Fuel, ShoppingCart,
+  Banknote, Landmark, Car, Shield, Smartphone, Moon, Scissors, Fuel, ShoppingCart, PlaneTakeoff,
 };
 
 const categoryColors = [
@@ -115,6 +116,10 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
   const cityRef = useRef<HTMLDivElement>(null);
   const neighborhoodRef = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { counts: liveCounts } = useCategoryCounts({
+    city: selectedCity?.name || currentLocation?.city,
+    country: selectedCountry?.name || currentLocation?.country,
+  });
   const activeCountryName = selectedCountry?.name || countryQuery.trim() || undefined;
 
   useEffect(() => {
@@ -733,6 +738,7 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                 </div>
                 <div className="text-[11px] text-brand-600 dark:text-brand-400/60 font-bold mb-1">{String(i + 1).padStart(2, '0')}</div>
                 <h3 className="text-neutral-900 dark:text-white font-bold text-sm mb-1 leading-tight">{cat.shortLabel}</h3>
+                <p className="text-brand-700 dark:text-brand-300 text-[11px] font-bold mb-1 tabular-nums">{formatPlaceCount(liveCounts[cat.key] ?? 0)} عنصر</p>
                 <p className="text-neutral-500 dark:text-zinc-400 text-[10px] leading-tight">{cat.filters.slice(0, 2).join(' • ')}</p>
               </button>
             );

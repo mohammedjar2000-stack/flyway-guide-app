@@ -8,6 +8,7 @@ import type { DirectoryListing } from '@/types';
 import type { MapBounds } from '@/lib/geo';
 import type { UserPosition } from '@/hooks/useGeolocation';
 import MapMarker from '@/components/map/MapMarker';
+import MarkerClusterGroup from '@/components/map/MarkerClusterGroup';
 import UserPuck from '@/components/map/UserPuck';
 import ViewportWatcher from '@/components/map/ViewportWatcher';
 import { makeDestIcon, makeOriginIcon } from '@/lib/mapIcons';
@@ -84,7 +85,7 @@ function MapFitListings({
 function MapFocusOnItem({ item }: { item: DirectoryListing | null }) {
   const map = useMap();
   useEffect(() => {
-    if (item) map.setView([item.lat, item.lng], Math.min(MAP_FOCUS_ZOOM, MAP_MAX_ZOOM), { animate: true });
+    if (item) map.setView([item.lat, item.lng], Math.min(17, MAP_MAX_ZOOM), { animate: true });
   }, [item, map]);
   return null;
 }
@@ -210,6 +211,7 @@ export interface MapViewProps {
   flyToken: number;
   listings: DirectoryListing[];
   focusedItem: DirectoryListing | null;
+  highlightedId?: string | null;
   userPosition: UserPosition | null;
   followUser: boolean;
   route: RouteData | null;
@@ -237,6 +239,7 @@ function MapView({
   flyToken,
   listings,
   focusedItem,
+  highlightedId = null,
   userPosition,
   followUser,
   route,
@@ -262,21 +265,30 @@ function MapView({
   const originIcon = useMemo(() => makeOriginIcon(), []);
   const destIcon = useMemo(() => makeDestIcon(), []);
   const mapMarkers = useMemo(() => {
-    const cap = 160;
     let next = listings;
-    if (listings.length > cap) {
-      const featured = listings.filter((item) => item.is_featured);
-      if (featured.length >= cap) next = featured.slice(0, cap);
-      else {
-        const rest = listings.filter((item) => !item.is_featured);
-        next = [...featured, ...rest.slice(0, cap - featured.length)];
-      }
-    }
     if (focusedItem && !next.some((item) => item.id === focusedItem.id)) {
-      next = [...next.slice(0, Math.max(next.length - 1, 0)), focusedItem];
+      next = [...next, focusedItem];
+    }
+    if (highlightedId && !next.some((item) => item.id === highlightedId)) {
+      const extra = listings.find((item) => item.id === highlightedId);
+      if (extra) next = [...next, extra];
     }
     return next;
-  }, [listings, focusedItem]);
+  }, [listings, focusedItem, highlightedId]);
+  const markerNodes = useMemo(
+    () => mapMarkers.map((item) => (
+      <MapMarker
+        key={item.id}
+        place={item}
+        active={focusedItem?.id === item.id}
+        highlighted={highlightedId === item.id && focusedItem?.id !== item.id}
+        onSelect={onSelect}
+        onPreview={onPreview}
+        onPreviewEnd={onPreviewEnd}
+      />
+    )),
+    [mapMarkers, focusedItem?.id, highlightedId, onSelect, onPreview, onPreviewEnd],
+  );
   const routeLine = useMemo(() => {
     const coords = route?.coordinates;
     if (!coords || coords.length < 2) return null;
@@ -376,16 +388,13 @@ function MapView({
           </>
         )}
 
-        {mapMarkers.map((item) => (
-          <MapMarker
-            key={item.id}
-            place={item}
-            active={focusedItem?.id === item.id}
-            onSelect={onSelect}
-            onPreview={onPreview}
-            onPreviewEnd={onPreviewEnd}
-          />
-        ))}
+        {mapMarkers.length > 70 ? (
+          <MarkerClusterGroup removeOutsideVisibleBounds chunkedLoading>
+            {markerNodes}
+          </MarkerClusterGroup>
+        ) : (
+          markerNodes
+        )}
       </MapContainer>
 
       {showSkeleton && (

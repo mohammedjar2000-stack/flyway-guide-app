@@ -1,23 +1,38 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   Hotel, UtensilsCrossed, Stethoscope, Pill, ShoppingBag, Camera,
   Banknote, Landmark, Car, Shield, Smartphone, Moon, Scissors, Fuel,
-  ShoppingCart, Search, Star, MapPin, Phone, Clock, X, Filter, Compass,
+  ShoppingCart, PlaneTakeoff, Search, Star, MapPin, Phone, Clock, X, Compass, Globe,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DirectoryListing } from '@/types';
 import { CATEGORIES } from '@/types';
-import { isAuthenticVenueName, isNearDuplicate } from '@/lib/placeAuthenticity';
-import { pinListing, pinQuery, sanitizePin } from '@/lib/placePrecision';
+import { pinQuery, sanitizePin, canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePrecision';
+import { isFuelCoordinateClean } from '@/lib/fuelGuard';
 import { getAllVerifiedPlaces } from '@/lib/verifiedPlaces';
 import FlywayBookButton from '@/components/map/FlywayBookButton';
 import PlaceHoverCard from '@/components/map/PlaceHoverCard';
+import PlaceSafeImage from '@/components/map/PlaceSafeImage';
 import { usePlacePreview } from '@/hooks/usePlacePreview';
+import { formatPlaceCount, listingDedupeKey, useCategoryCounts } from '@/hooks/useCategoryCounts';
+import { civicListRank } from '@/lib/civicRank';
+import {
+  fetchPlaceCatalog,
+  gisPlacesToListings,
+  ingestMappedPlaces,
+  PLACES_UPDATED_EVENT,
+  syncOsmCategory,
+} from '@/services/gisApi';
+import { fetchPlacesFromOverpass } from '@/services/overpassApi';
+import { lookupCity } from '@/lib/cityCoordinates';
+import { FETCH_RADIUS_METERS } from '@/lib/mapConfig';
+import { listingMatchesProvince, isAllTurkeyCity, isTurkeyCountry } from '@/lib/turkeyScope';
 import { appleMapsDirUrl, googleMapsSearchUrl, wazeNavUrl } from '@/lib/navLinks';
+import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, subscribeVault } from '@/lib/placeVault';
 
 const iconMap: Record<string, typeof Hotel> = {
   Hotel, UtensilsCrossed, Stethoscope, Pill, ShoppingBag, Camera,
-  Banknote, Landmark, Car, Shield, Smartphone, Moon, Scissors, Fuel, ShoppingCart,
+  Banknote, Landmark, Car, Shield, Smartphone, Moon, Scissors, Fuel, ShoppingCart, PlaneTakeoff,
 };
 
 interface DirectoryPageProps {
@@ -29,82 +44,127 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>(locationFilter?.category || 'hotels');
   const [search, setSearch] = useState('');
-  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [selected, setSelected] = useState<DirectoryListing | null>(null);
+  const { counts: liveCounts } = useCategoryCounts({
+    city: locationFilter?.city,
+    country: locationFilter?.country,
+  });
   const { preview, show: showPreview, hide: hidePreview, clear: clearPreview } = usePlacePreview();
 
   useEffect(() => {
-    if (locationFilter) {
-      const parts: string[] = [];
-      if (locationFilter.country) parts.push(locationFilter.country);
-      if (locationFilter.city) parts.push(locationFilter.city);
-      if (locationFilter.district) parts.push(locationFilter.district);
-      if (parts.length > 0) setSearch(parts.join('، '));
-      if (locationFilter.category) setActiveCategory(locationFilter.category);
-    }
+    if (locationFilter?.category) setActiveCategory(locationFilter.category);
   }, [locationFilter]);
 
   useEffect(() => {
     let cancelled = false;
-    supabase.from('directory_listings').select('*').order('sort_order').then(({ data }) => {
-      if (cancelled) return;
-      const accepted: DirectoryListing[] = [];
-      const ingest = (item: DirectoryListing) => {
-        if (!isAuthenticVenueName(item.name, item.category_key) && !isAuthenticVenueName(item.description || '', item.category_key)) {
-          return;
-        }
-        const pinned = pinListing(item);
-        if (!pinned) return;
-        if (accepted.some((existing) => existing.id === pinned.id || isNearDuplicate(existing, pinned))) return;
-        accepted.push(pinned);
-      };
-      for (const item of (data ?? []) as DirectoryListing[]) ingest(item);
-      for (const item of getAllVerifiedPlaces()) ingest(item);
-      setListings(accepted);
-      setLoading(false);
+    void bootPlaceVault();
+    setListings(getVaultSnapshot());
+    setLoading(false);
+    const unsub = subscribeVault(() => {
+      if (!cancelled) setListings(getVaultSnapshot());
     });
-    return () => { cancelled = true; };
-  }, []);
+
+    const cityHit = lookupCity(locationFilter?.city) || lookupCity(locationFilter?.country);
+    const origin = cityHit ? { lat: cityHit.lat, lng: cityHit.lng } : { lat: 41.0082, lng: 28.9784 };
+
+    (async () => {
+      mergeIntoVault(getAllVerifiedPlaces(), { fromCache: true });
+      const cityName = cityHit?.en || '';
+      void ingestMappedPlaces(getVaultSnapshot()).catch(() => null);
+      const denseCats = ['pharmacies', 'markets', 'hotels', 'telecom', 'exchange', 'transport', 'hospitals', 'police', 'fuel', 'bakeries', 'restaurants', 'mosques', 'nightlife', 'salons'] as const;
+      for (const category of denseCats) {
+        void syncOsmCategory({
+          lat: origin.lat,
+          lng: origin.lng,
+          category,
+          city: cityName,
+          country: cityHit?.countryEn || 'Turkey',
+          limit: category === 'transport' || category === 'fuel' || category === 'bakeries' ? 400 : 250,
+          radius: FETCH_RADIUS_METERS,
+        }).then(async (osmCounts) => {
+          if (cancelled) return;
+          if (osmCounts) {
+            window.dispatchEvent(new CustomEvent(PLACES_UPDATED_EVENT, { detail: { counts: osmCounts } }));
+          }
+          const extra = await fetchPlaceCatalog({ category, limit: 5000 });
+          if (cancelled) return;
+          mergeIntoVault(gisPlacesToListings(extra));
+        }).catch(() => null);
+      }
+      const supabasePromise = supabase.from('directory_listings').select('*').order('sort_order')
+        .then(({ data }) => (data ?? []) as DirectoryListing[])
+        .catch(() => [] as DirectoryListing[]);
+      const supabaseTimer = new Promise<DirectoryListing[]>((resolve) => {
+        window.setTimeout(() => resolve([]), 2500);
+      });
+      const [dbRows, gisPlaces, ...liveBuckets] = await Promise.all([
+        Promise.race([supabasePromise, supabaseTimer]),
+        fetchPlaceCatalog({ limit: 5000 }),
+        ...denseCats.map((category) => fetchPlacesFromOverpass(origin.lat, origin.lng, category, FETCH_RADIUS_METERS).catch(() => [] as DirectoryListing[])),
+      ]);
+      if (cancelled) return;
+      mergeIntoVault(dbRows);
+      mergeIntoVault(gisPlacesToListings(gisPlaces));
+      for (const bucket of liveBuckets) {
+        if (bucket.length) {
+          mergeIntoVault(bucket);
+          void ingestMappedPlaces(bucket).catch(() => null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [locationFilter?.city, locationFilter?.country]);
 
   const currentCat = CATEGORIES.find((c) => c.key === activeCategory);
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    listings.filter((l) => l.category_key === activeCategory).forEach((l) => l.tags.forEach((t) => tags.add(t)));
-    return Array.from(tags);
-  }, [listings, activeCategory]);
-
+  const cityHit = lookupCity(locationFilter?.city);
+  const allTurkey = isAllTurkeyCity(locationFilter?.city)
+    || (!cityHit && isTurkeyCountry(locationFilter?.country));
+  const filteredHold = useRef<DirectoryListing[]>([]);
   const filtered = useMemo(() => {
-    return listings.filter((l) => {
-      if (l.category_key !== activeCategory) return false;
+    const seen = new Set<string>();
+    const next = listings.filter((l) => {
+      if (allTurkey) {
+        if (!listingMatchesProvince(l, cityHit, true)) return false;
+      } else if (cityHit && !listingMatchesProvince(l, cityHit, false)) {
+        return false;
+      }
+      if (canonicalFuelBakeryKey(l) !== activeCategory && !(activeCategory === 'embassy' && l.category_key === 'police')) return false;
+      if (activeCategory === 'fuel' && (!listingMatchesCategory(l, 'fuel') || !isFuelCoordinateClean(l.lat, l.lng))) return false;
+      const key = listingDedupeKey(l);
+      if (seen.has(key)) return false;
+      seen.add(key);
       if (search.trim()) {
         const hay = [l.name, l.description, l.city, l.country_name, l.address].join(' ').toLowerCase();
         const tokens = search.toLowerCase().split(/[،,]+/).map((t) => t.trim()).filter(Boolean);
         if (tokens.length > 0 && !tokens.every((t) => hay.includes(t))) return false;
       }
-      if (activeTags.length > 0 && !activeTags.every((t) => l.tags.includes(t))) return false;
       return true;
-    });
-  }, [listings, activeCategory, search, activeTags]);
-
-  const toggleTag = (tag: string) => {
-    setActiveTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
-  };
+    }).sort((a, b) => civicListRank(a) - civicListRank(b));
+    if (next.length > 0) {
+      filteredHold.current = next;
+      return next;
+    }
+    if (loading && filteredHold.current.length > 0) return filteredHold.current;
+    return next;
+  }, [listings, activeCategory, search, loading, cityHit, allTurkey]);
 
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-8">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-neutral-900 dark:text-white mb-3">الدليل الشامل لخدمات السفر</h1>
-        <p className="text-neutral-600 dark:text-zinc-300 text-sm">15 دليلاً متخصصاً مع تصفية فورية — اختر الفئة وابحث</p>
+        <p className="text-neutral-600 dark:text-zinc-300 text-sm">16 دليلاً متخصصاً مع تصفية فورية — اختر الفئة وابحث</p>
       </div>
 
       <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-3 mb-8">
         {CATEGORIES.map((cat) => {
           const Icon = iconMap[cat.icon] || Hotel;
-          const count = activeCategory === cat.key
-            ? filtered.length
-            : listings.filter((l) => l.category_key === cat.key).length;
+          const count = liveCounts[cat.key] ?? 0;
           return (
-            <button key={cat.key} onClick={() => { setActiveCategory(cat.key); setSearch(''); setActiveTags([]); }}
+            <button key={cat.key} onClick={() => { setActiveCategory(cat.key); setSearch(''); }}
               className={`rounded-xl p-3 text-center cursor-pointer transition-all duration-300 border ${
                 activeCategory === cat.key
                   ? 'bg-brand-400 border-brand-400 shadow-lg shadow-brand-400/20 scale-105'
@@ -115,38 +175,23 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
                 {cat.shortLabel}
               </div>
               <div className={`text-[9px] mt-0.5 ${activeCategory === cat.key ? 'text-neutral-800' : 'text-zinc-500'}`}>
-                {count} عنصر
+                {formatPlaceCount(count)} عنصر
               </div>
             </button>
           );
         })}
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
+      <div className="mb-8">
+        <div className="relative">
           <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-400/60" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="ابحث بالاسم، المدينة، أو الدولة..."
             className="w-full pr-12 pl-4 py-3.5 glass-dark rounded-xl text-neutral-900 dark:text-white text-sm outline-none border border-neutral-200 dark:border-white/10 transition-all focus:border-brand-400" />
         </div>
-        {allTags.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-4 h-4 text-brand-400/60 shrink-0" />
-            {allTags.map((tag) => (
-              <button key={tag} onClick={() => toggleTag(tag)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all border ${
-                  activeTags.includes(tag)
-                    ? 'bg-brand-400 border-brand-400 text-neutral-950'
-                    : 'glass-dark border-neutral-200 dark:border-white/10 text-neutral-600 hover:text-neutral-900 dark:text-zinc-400 dark:hover:text-white'
-                }`}>
-                {tag}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
-      {loading ? (
+      {loading && listings.length === 0 ? (
         <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
           {[...Array(4)].map((_, i) => <div key={i} className="h-[300px] rounded-2xl shimmer-bg animate-shimmer" />)}
         </div>
@@ -156,7 +201,7 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
         </div>
       ) : (
         <>
-          <div className="text-zinc-500 text-xs mb-4">{filtered.length} نتيجة في "{currentCat?.label}"</div>
+          <div className="text-zinc-500 text-xs mb-4 tabular-nums">{formatPlaceCount(filtered.length)} نتيجة في "{currentCat?.label}"</div>
           <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
             {filtered.map((item) => (
               <div
@@ -167,10 +212,10 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
                   showPreview(item, r.left + r.width / 2, r.top, 'marker');
                 }}
                 onMouseLeave={() => hidePreview()}
-                className="glass-dark rounded-2xl overflow-hidden border border-white/10 card-hover cursor-pointer group"
+                className="glass-dark rounded-2xl overflow-hidden border border-white/10 card-hover cursor-pointer group [content-visibility:auto] [contain-intrinsic-size:auto_360px]"
               >
                 <div className="relative h-[180px] overflow-hidden">
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <PlaceSafeImage place={item} prefer={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   {Number(item.rating) > 0 && (
                     <div className="on-dark absolute top-3 right-3 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full">
                       <Star className="w-3.5 h-3.5 text-brand-400" fill="currentColor" />
@@ -190,15 +235,10 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
                     <MapPin className="w-3.5 h-3.5" /> {item.city}، {item.country_name}
                   </div>
                   {item.proximity_note && (
-                    <div className="text-brand-400/80 text-[11px] mb-3 leading-relaxed">
+                    <div className="text-brand-400/80 text-[11px] leading-relaxed">
                       {item.proximity_note}
                     </div>
                   )}
-                  <div className="flex flex-wrap gap-1.5">
-                    {item.tags.slice(0, 3).map((t, i) => (
-                      <span key={i} className="glass px-2.5 py-1 rounded-full text-[10px] text-neutral-700 dark:text-zinc-300">{t}</span>
-                    ))}
-                  </div>
                 </div>
               </div>
             ))}
@@ -210,7 +250,7 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelected(null)}>
           <div className="max-w-[560px] w-full max-h-[85vh] overflow-y-auto bg-white rounded-2xl border border-neutral-200 shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
             <div className="relative h-[260px] overflow-hidden rounded-t-2xl">
-              <img src={selected.image} alt={selected.name} className="w-full h-full object-cover" />
+              <PlaceSafeImage place={selected} prefer={selected.image} alt={selected.name} className="w-full h-full object-cover" loading="eager" />
               <button onClick={() => setSelected(null)} className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white text-neutral-900 flex items-center justify-center hover:bg-neutral-100 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -271,11 +311,15 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {selected.tags.map((t, i) => (
-                  <span key={i} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-brand-400 text-neutral-950">{t}</span>
-                ))}
-              </div>
+              {selected.website && (
+                <a href={selected.website} target="_blank" rel="noopener noreferrer" className="rounded-xl p-3 flex items-center gap-2 bg-neutral-50 border border-neutral-200 text-neutral-900 no-underline">
+                  <Globe className="w-4 h-4 text-neutral-800" />
+                  <div>
+                    <p className="text-xs text-neutral-600 font-semibold">الموقع الرسمي</p>
+                    <p className="text-neutral-900 text-sm font-semibold break-all" dir="ltr">{selected.website}</p>
+                  </div>
+                </a>
+              )}
 
               {(() => {
                 const pin = sanitizePin(selected.lat, selected.lng);

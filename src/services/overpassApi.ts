@@ -1,8 +1,12 @@
 import type { DirectoryListing } from '@/types';
 import { sanitizeBounds, type MapBounds } from '@/lib/geo';
 import { isAuthenticVenueName } from '@/lib/placeAuthenticity';
-import { isCampusBlob, isPreciseVenuePin, listingMatchesCategory, osmTagsMatchCategory, sanitizePin } from '@/lib/placePrecision';
+import { isCampusBlob, isPreciseVenuePin, listingMatchesCategory, normalizeFuelBakeryListing, osmTagsMatchCategory, sanitizePin } from '@/lib/placePrecision';
+import { bboxSpanMeters, inferTurkeyCityEn, validateCoordinates } from '@/lib/coordIntegrity';
+import { lookupCity } from '@/lib/cityCoordinates';
 import { placeGallery, placeKindLabel, resolvePlaceKind } from '@/lib/placeImagery';
+import { financialKind, financialLabel } from '@/lib/financialKind';
+import { osmMediaUrls, transportGalleryFor } from '@/lib/transportPhotos';
 import { normalizeTurkeyEmergencyPhone } from '@/lib/turkeyEmergency';
 
 const PRIMARY_ENDPOINT = 'https://overpass-api.de/api/interpreter';
@@ -10,10 +14,31 @@ const FALLBACK_ENDPOINTS = [
   'https://overpass.private.coffee/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
 ];
-const DEFAULT_RADIUS_METERS = 18000;
-const TIMEOUT_SECONDS = 8;
+const DEFAULT_RADIUS_METERS = 22000;
+const TIMEOUT_SECONDS = 16;
 const CACHE_TTL_MS = 3 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 80;
+const MIN_PER_CATEGORY = 150;
+const FETCH_CONCURRENCY = 3;
+
+const PER_CATEGORY_LIMIT: Record<string, number> = {
+  pharmacies: 400,
+  hospitals: 280,
+  police: 250,
+  hotels: 400,
+  restaurants: 350,
+  markets: 400,
+  attractions: 200,
+  exchange: 400,
+  mosques: 250,
+  transport: 280,
+  embassy: 80,
+  telecom: 300,
+  nightlife: 180,
+  salons: 220,
+  fuel: 300,
+  bakeries: 400,
+};
 
 export class OverpassError extends Error {
   status?: number;
@@ -33,20 +58,20 @@ export interface OverpassCategoryDef {
 const CATEGORY_TO_OSM: Record<string, OverpassCategoryDef> = {
   hotels: { category_key: 'hotels', category_label: 'فندق', filters: ['tourism=hotel', 'tourism=guest_house', 'tourism=apartment', 'tourism=hostel', 'tourism=resort'] },
   restaurants: { category_key: 'restaurants', category_label: 'مطعم', filters: ['amenity=restaurant', 'amenity=cafe', 'amenity=fast_food'] },
-  pharmacies: { category_key: 'pharmacies', category_label: 'صيدلية', filters: ['amenity=pharmacy'] },
+  pharmacies: { category_key: 'pharmacies', category_label: 'صيدلية', filters: ['amenity=pharmacy', 'shop=chemist'] },
   hospitals: { category_key: 'hospitals', category_label: 'مستشفى', filters: ['amenity=hospital', 'amenity=clinic', 'healthcare=hospital'] },
-  markets: { category_key: 'markets', category_label: 'سوق', filters: ['shop=supermarket', 'shop=mall', 'shop=convenience', 'shop=department_store'] },
+  markets: { category_key: 'markets', category_label: 'سوق', filters: ['shop=supermarket', 'shop=mall', 'shop=convenience', 'shop=department_store', 'shop=marketplace', 'amenity=marketplace'] },
   attractions: { category_key: 'attractions', category_label: 'معلم سياحي', filters: ['tourism=museum', 'tourism=gallery', 'historic=monument', 'historic=castle'] },
-  exchange: { category_key: 'exchange', category_label: 'صرافة', filters: ['amenity=bank', 'amenity=bureau_de_change', 'amenity=atm'] },
+  exchange: { category_key: 'exchange', category_label: 'صرافة ومالية', filters: ['amenity=bank', 'amenity=bureau_de_change', 'amenity=atm'] },
   mosques: { category_key: 'mosques', category_label: 'مسجد', filters: ['amenity=mosque'] },
   transport: { category_key: 'transport', category_label: 'نقل', filters: ['amenity=bus_station', 'amenity=taxi', 'amenity=car_rental', 'amenity=subway_entrance', 'railway=station'] },
   embassy: { category_key: 'embassy', category_label: 'سفارة', filters: ['amenity=embassy'] },
   police: { category_key: 'police', category_label: 'شرطة', filters: ['amenity=police'] },
-  telecom: { category_key: 'telecom', category_label: 'اتصالات', filters: ['shop=mobile_phone', 'shop=electronics', 'office=telecommunication'] },
+  telecom: { category_key: 'telecom', category_label: 'اتصالات و eSIM', filters: ['shop=mobile_phone', 'office=telecommunication', 'shop=telecommunication'] },
   nightlife: { category_key: 'nightlife', category_label: 'نادي ليلي', filters: ['amenity=nightclub', 'amenity=bar', 'amenity=pub', 'amenity=biergarten'] },
   salons: { category_key: 'salons', category_label: 'صالون', filters: ['shop=hairdresser', 'shop=beauty'] },
-  fuel: { category_key: 'fuel', category_label: 'محطة وقود', filters: ['amenity=fuel'] },
-  bakeries: { category_key: 'bakeries', category_label: 'مخبز', filters: ['shop=bakery', 'shop=pastry'] },
+  fuel: { category_key: 'fuel', category_label: 'وقود', filters: ['amenity=fuel'] },
+  bakeries: { category_key: 'bakeries', category_label: 'مخابز وسوبر ماركت', filters: ['shop=bakery', 'shop=pastry', 'shop=supermarket', 'shop=convenience', 'shop=greengrocer'] },
 };
 
 const FILTER_LABELS: Record<string, string> = {
@@ -54,6 +79,7 @@ const FILTER_LABELS: Record<string, string> = {
   'amenity=cafe': 'مقهى',
   'amenity=fast_food': 'وجبات سريعة',
   'amenity=pharmacy': 'صيدلية',
+  'shop=chemist': 'صيدلية',
   'amenity=hospital': 'مستشفى',
   'amenity=clinic': 'عيادة',
   'healthcare=hospital': 'مستشفى',
@@ -68,6 +94,8 @@ const FILTER_LABELS: Record<string, string> = {
   'shop=mall': 'مركز تسوق',
   'shop=convenience': 'بقالة',
   'shop=department_store': 'متجر متعدد الأقسام',
+  'shop=marketplace': 'سوق شعبي',
+  'amenity=marketplace': 'سوق شعبي',
   'tourism=museum': 'متحف',
   'tourism=gallery': 'معرض فني',
   'tourism=viewpoint': 'نقطة مشاهدة',
@@ -88,9 +116,10 @@ const FILTER_LABELS: Record<string, string> = {
   'amenity=fuel': 'محطة وقود',
   'amenity=embassy': 'سفارة',
   'amenity=police': 'مركز شرطة',
-  'shop=mobile_phone': 'موبايل',
+  'shop=mobile_phone': 'متجر شرائح SIM',
   'shop=electronics': 'إلكترونيات',
   'office=telecommunication': 'اتصالات',
+  'shop=telecommunication': 'اتصالات و eSIM',
   'amenity=nightclub': 'نادي ليلي',
   'amenity=bar': 'بار',
   'amenity=pub': 'حانة',
@@ -99,6 +128,7 @@ const FILTER_LABELS: Record<string, string> = {
   'shop=beauty': 'صالون تجميل',
   'shop=bakery': 'مخبز',
   'shop=pastry': 'حلويات',
+  'shop=greengrocer': 'خضار وفواكه',
 };
 
 interface FilterMatch {
@@ -115,6 +145,13 @@ for (const cat of Object.values(CATEGORY_TO_OSM)) {
     };
   }
 }
+if (CATEGORY_TO_OSM.markets) {
+  FILTER_TO_CATEGORY['shop=supermarket'] = { cat: CATEGORY_TO_OSM.markets, label: 'سوبر ماركت' };
+}
+if (CATEGORY_TO_OSM.bakeries) {
+  FILTER_TO_CATEGORY['shop=bakery'] = { cat: CATEGORY_TO_OSM.bakeries, label: 'مخبز' };
+  FILTER_TO_CATEGORY['shop=pastry'] = { cat: CATEGORY_TO_OSM.bakeries, label: 'حلويات' };
+}
 
 interface OsmElement {
   id: number;
@@ -122,6 +159,7 @@ interface OsmElement {
   lat?: number;
   lon?: number;
   center?: { lat: number; lon: number };
+  bounds?: { minlat?: number; minlon?: number; maxlat?: number; maxlon?: number };
   tags?: Record<string, string>;
 }
 
@@ -168,20 +206,20 @@ function cacheKey(parts: Record<string, string | number | undefined>) {
 const PRIMARY_FILTER: Record<string, string[]> = {
   hotels: ['tourism=hotel', 'tourism=resort'],
   restaurants: ['amenity=restaurant', 'amenity=cafe'],
-  pharmacies: ['amenity=pharmacy'],
+  pharmacies: ['amenity=pharmacy', 'shop=chemist'],
   hospitals: ['amenity=hospital', 'amenity=clinic', 'healthcare=hospital'],
-  markets: ['shop=supermarket', 'shop=mall', 'shop=convenience'],
+  markets: ['shop=supermarket', 'shop=mall', 'shop=convenience', 'shop=department_store', 'shop=marketplace', 'amenity=marketplace'],
   attractions: ['tourism=museum', 'historic=monument', 'tourism=attraction'],
-  exchange: ['amenity=bank', 'amenity=bureau_de_change'],
+  exchange: ['amenity=bank', 'amenity=bureau_de_change', 'amenity=atm'],
   mosques: ['amenity=mosque'],
   transport: ['amenity=car_rental', 'railway=station', 'amenity=bus_station'],
   embassy: ['amenity=embassy'],
   police: ['amenity=police'],
-  telecom: ['shop=mobile_phone'],
+  telecom: ['shop=mobile_phone', 'office=telecommunication', 'shop=telecommunication'],
   nightlife: ['amenity=nightclub', 'amenity=cafe'],
   salons: ['shop=hairdresser'],
   fuel: ['amenity=fuel'],
-  bakeries: ['shop=bakery'],
+  bakeries: ['shop=bakery', 'shop=supermarket', 'shop=convenience'],
 };
 
 function compactFiltersFor(categories: string[]): string[] {
@@ -191,7 +229,7 @@ function compactFiltersFor(categories: string[]): string[] {
     const primary = PRIMARY_FILTER[key] ?? CATEGORY_TO_OSM[key]?.filters.slice(0, 2);
     if (primary) filters.push(...primary);
   }
-  return Array.from(new Set(filters)).slice(0, 20);
+  return Array.from(new Set(filters));
 }
 
 type QueryArea =
@@ -219,12 +257,17 @@ function buildQuery(options: {
 }) {
   const clause = options.filters.map((f) => buildSelector(f, options.area)).join('');
   const limit = options.maxResults ? ` ${options.maxResults}` : '';
-  return `[out:json][timeout:${TIMEOUT_SECONDS}];(${clause});out center${limit};`;
+  return `[out:json][timeout:${TIMEOUT_SECONDS}];(${clause});out center bb${limit};`;
 }
 
 function resolveName(tags: Record<string, string> | undefined): string {
   if (!tags) return '';
-  return tags['name:ar'] || tags.name || tags['name:en'] || tags.int_name || tags.brand || '';
+  const named = tags['name:ar'] || tags.name || tags['name:en'] || tags.int_name || tags.brand || tags.operator || '';
+  if (named.trim()) return named;
+  if (tags.amenity === 'atm') return tags.brand || tags.operator || 'ATM';
+  if (tags.amenity === 'bureau_de_change') return tags.brand || 'Döviz';
+  if (tags.amenity === 'bank') return tags.brand || tags.operator || 'Bank';
+  return '';
 }
 
 function resolveNameEn(tags: Record<string, string> | undefined): string {
@@ -251,6 +294,17 @@ function parseHours(hours: string): string {
 
 function getLatLon(el: OsmElement): { lat: number; lon: number } | null {
   if (el.type === 'relation') return null;
+  const tags = el.tags || {};
+  if (tags.natural === 'water' || tags.natural === 'bay' || tags.waterway || tags.place === 'sea') return null;
+  const span = bboxSpanMeters(el.bounds);
+  const largeFootprint = Boolean(tags.shop)
+    || tags.amenity === 'marketplace'
+    || tags.amenity === 'bank'
+    || tags.office === 'telecommunication'
+    || tags.tourism === 'hotel'
+    || tags.tourism === 'resort'
+    || tags.tourism === 'guest_house';
+  if (span != null && span > (largeFootprint ? 900 : 280) && el.type !== 'node') return null;
   if (el.lat != null && el.lon != null) {
     const pin = sanitizePin(el.lat, el.lon);
     return pin ? { lat: pin.lat, lon: pin.lng } : null;
@@ -289,7 +343,8 @@ function toListing(el: OsmElement, catDef: OverpassCategoryDef, label?: string):
   if (leisure === 'park' || leisure === 'garden' || leisure === 'playground' || leisure === 'pitch') return null;
   const amenity = el.tags?.amenity;
   if (amenity === 'car_rental' && catDef.category_key !== 'transport') return null;
-  if ((amenity === 'hospital' || amenity === 'clinic' || amenity === 'doctors') && catDef.category_key !== 'hospitals') return null;
+  if ((amenity === 'hospital' || amenity === 'clinic' || amenity === 'doctors' || el.tags?.healthcare === 'hospital') && catDef.category_key !== 'hospitals') return null;
+  if ((el.tags?.shop === 'mall' || el.tags?.building === 'hospital' || el.tags?.building === 'retail') && catDef.category_key === 'fuel') return null;
   if (amenity === 'pharmacy' && catDef.category_key !== 'pharmacies') return null;
   if (el.tags?.tourism === 'hotel' && catDef.category_key !== 'hotels') return null;
   if (el.tags?.tourism === 'resort' && catDef.category_key !== 'hotels') return null;
@@ -309,17 +364,30 @@ function toListing(el: OsmElement, catDef: OverpassCategoryDef, label?: string):
     el.tags?.['addr:city'],
     el.tags?.['addr:district'],
   ].filter(Boolean);
-  const city = el.tags?.['addr:city'] || '';
+  const addrCity = el.tags?.['addr:city'] || '';
   const address = addrParts.join(' ');
+  const verdict = validateCoordinates({
+    lat: coord.lat,
+    lng: coord.lon,
+    city: addrCity,
+    address,
+    osmType: el.type,
+    bboxSpanMeters: bboxSpanMeters(el.bounds),
+    precisionHint: el.type === 'node' ? 'rooftop' : 'venue',
+  });
+  if (!verdict.ok) return null;
+  const cityEn = inferTurkeyCityEn(verdict.lat, verdict.lng, addrCity);
+  const stamped = lookupCity(cityEn) || lookupCity(addrCity);
+  const city = stamped?.name || cityEn || addrCity;
   const phone = normalizeTurkeyEmergencyPhone(
     rawPhone,
-    el.tags?.['addr:country'] || '',
+    el.tags?.['addr:country'] || stamped?.country || '',
     city,
     catDef.category_key,
     address,
   );
 
-  const osmImage = el.tags?.image || '';
+  const media = osmMediaUrls(el.tags);
   const kind = catDef.category_key === 'hotels'
     ? resolvePlaceKind({
       category_key: 'hotels',
@@ -329,37 +397,50 @@ function toListing(el: OsmElement, catDef: OverpassCategoryDef, label?: string):
       place_kind: el.tags?.tourism === 'resort' ? 'resort' : undefined,
     })
     : undefined;
+  const finance = catDef.category_key === 'exchange'
+    ? financialKind({
+      subcategory: el.tags?.amenity,
+      category_label: label,
+      name,
+      description: nameEn,
+    })
+    : null;
   const listing: DirectoryListing = {
     id: `osm-${el.type || 'n'}-${el.id}`,
     category_key: catDef.category_key,
-    category_label: kind ? placeKindLabel(kind) : (label || catDef.category_label),
+    category_label: finance
+      ? financialLabel(finance)
+      : (kind ? placeKindLabel(kind) : (label || catDef.category_label)),
     name,
     description: nameEn && nameEn !== name ? nameEn : (el.tags?.description || ''),
-    country_name: el.tags?.['addr:country'] || '',
+    country_name: stamped?.country || el.tags?.['addr:country'] || '',
     city,
     address,
-    image: /^https?:\/\/.+\.(jpe?g|png|webp)(\?|$)/i.test(osmImage) ? osmImage : '',
-    images: [],
+    image: media[0] || '',
+    images: media,
     place_kind: kind,
     rating: 0,
     price_level: '',
-    tags: resolveTags(el.tags),
+    tags: [
+      ...resolveTags(el.tags),
+      ...(finance ? [financialLabel(finance)] : []),
+    ].slice(0, 6),
     proximity_note: '',
     phone,
     hours,
     is_featured: false,
     sort_order: 0,
-    lat: coord.lat,
-    lng: coord.lon,
+    lat: verdict.lat,
+    lng: verdict.lng,
     metro_station_name: '',
     metro_walk_minutes: 0,
     review_count: 0,
     created_at: '',
-    nav_query: `${coord.lat.toFixed(7)},${coord.lon.toFixed(7)}`,
+    nav_query: `${verdict.lat.toFixed(7)},${verdict.lng.toFixed(7)}`,
   };
-  listing.images = placeGallery(listing);
+  listing.images = catDef.category_key === 'transport' ? transportGalleryFor(listing) : placeGallery(listing);
   listing.image = listing.images[0] || '';
-  return listing;
+  return normalizeFuelBakeryListing(listing);
 }
 
 function parseElements(elements: OsmElement[], forcedCat?: OverpassCategoryDef): DirectoryListing[] {
@@ -393,7 +474,9 @@ function parseElements(elements: OsmElement[], forcedCat?: OverpassCategoryDef):
         })();
     if (!listing) continue;
 
-    const nameKey = `${listing.category_key}:${listing.name.toLowerCase()}`;
+    const nameKey = listing.category_key === 'telecom' || listing.category_key === 'exchange'
+      ? `${listing.category_key}:${listing.name.toLowerCase()}:${listing.lat.toFixed(4)}:${listing.lng.toFixed(4)}`
+      : `${listing.category_key}:${listing.name.toLowerCase()}`;
     if (seenName.has(nameKey)) continue;
 
     seenCoord.add(coordKey);
@@ -441,36 +524,18 @@ async function postOverpass(
   }
 }
 
-async function firstFulfilled<T>(tasks: Promise<T>[]): Promise<T> {
-  return new Promise((resolve, reject) => {
-    let pending = tasks.length;
-    let lastError: unknown = null;
-    if (pending === 0) {
-      reject(new OverpassError('تعذر جلب الأماكن من الخريطة'));
-      return;
-    }
-    for (const task of tasks) {
-      task.then(resolve, (err) => {
-        lastError = err;
-        pending -= 1;
-        if (pending === 0) {
-          reject(lastError instanceof OverpassError ? lastError : new OverpassError('تعذر جلب الأماكن من الخريطة'));
-        }
-      });
-    }
-  });
-}
-
 async function runOverpass(query: string): Promise<OsmElement[]> {
-  const endpoints = [PRIMARY_ENDPOINT, FALLBACK_ENDPOINTS[0]].filter(Boolean);
-  const shared = new AbortController();
   const timeoutMs = TIMEOUT_SECONDS * 1000;
-  const tasks = endpoints.map((endpoint) => postOverpass(endpoint, query, timeoutMs, shared.signal));
-  try {
-    return await firstFulfilled(tasks);
-  } finally {
-    shared.abort();
+  const endpoints = [PRIMARY_ENDPOINT, ...FALLBACK_ENDPOINTS];
+  let lastError: unknown;
+  for (const endpoint of endpoints) {
+    try {
+      return await postOverpass(endpoint, query, timeoutMs);
+    } catch (err) {
+      lastError = err;
+    }
   }
+  throw lastError instanceof Error ? lastError : new OverpassError('تعذر الاتصال بخدمة الخريطة');
 }
 
 async function queryAndParse(
@@ -519,7 +584,7 @@ async function fetchCombined(
   if (uniqueCats.length === 0) return [];
   const filters = compactFiltersFor(uniqueCats);
   if (filters.length === 0) return [];
-  const key = cacheKey({ ...areaCacheParts(area), cats: uniqueCats.slice().sort().join(','), combined: 1, pin: 2 });
+  const key = cacheKey({ ...areaCacheParts(area), cats: uniqueCats.slice().sort().join(','), combined: 1, pin: 3 });
   try {
     const query = buildQuery({ filters, area, maxResults });
     const parsed = await queryAndParse(key, query);
@@ -529,6 +594,20 @@ async function fetchCombined(
   }
 }
 
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      out[index] = await fn(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 async function fetchByArea(
   area: QueryArea,
   categories: string[],
@@ -536,7 +615,25 @@ async function fetchByArea(
 ): Promise<DirectoryListing[]> {
   const uniqueCats = Array.from(new Set(categories)).filter((key) => CATEGORY_TO_OSM[key]);
   if (uniqueCats.length === 0) return [];
-  return fetchCombined(area, uniqueCats, Math.min(maxResults, 220));
+  if (uniqueCats.length === 1) {
+    const cat = uniqueCats[0];
+    const cap = Math.max(maxResults, PER_CATEGORY_LIMIT[cat] ?? MIN_PER_CATEGORY);
+    return fetchCombined(area, uniqueCats, cap);
+  }
+  const batches = await mapPool(uniqueCats, FETCH_CONCURRENCY, async (cat) => {
+    const cap = Math.max(PER_CATEGORY_LIMIT[cat] ?? MIN_PER_CATEGORY, MIN_PER_CATEGORY);
+    return fetchCombined(area, [cat], cap);
+  });
+  const merged: DirectoryListing[] = [];
+  const seen = new Set<string>();
+  for (const batch of batches) {
+    for (const place of batch) {
+      if (seen.has(place.id)) continue;
+      seen.add(place.id);
+      merged.push(place);
+    }
+  }
+  return merged;
 }
 
 export async function fetchPlacesFromOverpass(
@@ -545,7 +642,7 @@ export async function fetchPlacesFromOverpass(
   category: string,
   radiusMeters: number = DEFAULT_RADIUS_METERS,
 ): Promise<DirectoryListing[]> {
-  return fetchByArea({ kind: 'around', lat, lon, radius: radiusMeters }, [category], 60);
+  return fetchByArea({ kind: 'around', lat, lon, radius: radiusMeters }, [category], PER_CATEGORY_LIMIT[category] ?? 120);
 }
 
 export async function fetchAllCategoriesFromOverpass(
@@ -563,7 +660,7 @@ export async function fetchAllCategoriesFromOverpass(
 export async function fetchPlacesInBounds(
   bounds: MapBounds,
   categories: string[],
-  maxResults = 80,
+  maxResults = 500,
 ): Promise<DirectoryListing[]> {
   const clean = sanitizeBounds(bounds);
   if (!clean) return [];
@@ -578,7 +675,18 @@ export async function fetchPlacesForMap(options: {
 }): Promise<DirectoryListing[]> {
   const requested = Array.from(new Set(options.categories)).filter((key) => CATEGORY_TO_OSM[key]);
   if (requested.includes('embassy') && !requested.includes('police')) requested.push('police');
-  const cats = requested.slice(0, 16);
+  const cats = requested.slice(0, 16).sort((a, b) => {
+    const rank = (key: string) => (
+      key === 'pharmacies' ? 0
+        : key === 'hospitals' ? 1
+          : key === 'hotels' ? 2
+            : key === 'restaurants' ? 3
+              : key === 'telecom' ? 4
+              : key === 'exchange' ? 5
+              : 8
+    );
+    return rank(a) - rank(b);
+  });
   if (cats.length === 0) return [];
 
   const origin = options.origin && Number.isFinite(options.origin.lat) && Number.isFinite(options.origin.lng)
@@ -597,14 +705,11 @@ export async function fetchPlacesForMap(options: {
     }
   };
 
+  if (origin) {
+    push(await fetchByArea({ kind: 'around', lat: origin.lat, lon: origin.lng, radius }, cats));
+  }
   if (bounds) {
-    push(await fetchCombined({ kind: 'bbox', bounds }, cats, 180));
-  } else if (origin) {
-    push(await fetchCombined(
-      { kind: 'around', lat: origin.lat, lon: origin.lng, radius },
-      cats,
-      160,
-    ));
+    push(await fetchByArea({ kind: 'bbox', bounds }, cats));
   }
   return merged;
 }

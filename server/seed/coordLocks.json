@@ -1,0 +1,104 @@
+[
+  {
+    "sourceId": "verified-taksim-eczanesi",
+    "name": "Taksim Eczanesi",
+    "aliases": ["صيدلية تقسيم", "Taksim Pharmacy"],
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 41.03505,
+    "lng": 28.98545,
+    "note": "Sıraselviler Caddesi No:51 rooftop"
+  },
+  {
+    "sourceId": "verified-sultanahmet-eczanesi",
+    "name": "Sultanahmet Eczanesi",
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 41.00892,
+    "lng": 28.97748,
+    "note": "Alemdar Caddesi No:16 rooftop"
+  },
+  {
+    "sourceId": "verified-nisantasi-eczanesi",
+    "name": "Nisantasi Eczanesi",
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 41.0489,
+    "lng": 28.9941,
+    "note": "Valikonağı Caddesi rooftop"
+  },
+  {
+    "sourceId": "verified-kadikoy-eczanesi",
+    "name": "Kadikoy Eczanesi",
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 40.9908,
+    "lng": 29.0245,
+    "note": "Bahariye Caddesi rooftop"
+  },
+  {
+    "sourceId": "verified-besiktas-eczanesi",
+    "name": "Besiktas Eczanesi",
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 41.0425,
+    "lng": 29.0072,
+    "note": "Barbaros Bulvarı rooftop"
+  },
+  {
+    "sourceId": "verified-fatih-eczanesi",
+    "name": "Fatih Eczanesi",
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 41.0182,
+    "lng": 28.9498,
+    "note": "Fevziye Caddesi rooftop"
+  },
+  {
+    "sourceId": "verified-uskudar-eczanesi",
+    "name": "Uskudar Eczanesi",
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 41.0235,
+    "lng": 29.015,
+    "note": "Hakimiyeti Milliye Caddesi rooftop"
+  },
+  {
+    "sourceId": "verified-levent-eczanesi",
+    "name": "Levent Eczanesi",
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 41.0805,
+    "lng": 29.0138,
+    "note": "Büyükdere Caddesi rooftop"
+  },
+  {
+    "sourceId": "verified-bakirkoy-eczanesi",
+    "name": "Bakirkoy Eczanesi",
+    "city": "Istanbul",
+    "category": "pharmacies",
+    "lat": 40.9815,
+    "lng": 28.8722,
+    "note": "İstanbul Caddesi rooftop"
+  },
+  {
+    "sourceId": "verified-american-hospital",
+    "name": "American Hospital Istanbul",
+    "aliases": ["المستشفى الأمريكي", "American Hospital"],
+    "city": "Istanbul",
+    "category": "hospitals",
+    "lat": 41.04861,
+    "lng": 28.99444,
+    "note": "Nişantaşı rooftop"
+  },
+  {
+    "sourceId": "verified-acibadem-taksim",
+    "name": "Acibadem Taksim Hospital",
+    "aliases": ["مستشفى أجيبادم تقسيم", "Acıbadem Taksim Hospital"],
+    "city": "Istanbul",
+    "category": "hospitals",
+    "lat": 41.04151,
+    "lng": 28.98224,
+    "note": "Dolapdere rooftop"
+  }
+]

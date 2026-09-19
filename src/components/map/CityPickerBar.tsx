@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Landmark, Loader2, MapPin, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Globe, Landmark, Loader2, MapPin, Search, X } from 'lucide-react';
 import {
   firstMajorCityForCountry,
   getDistrictsForCity,
@@ -12,6 +12,7 @@ import {
   type DistrictCoordinate,
 } from '@/lib/cityCoordinates';
 import { listMajorCities, searchCities } from '@/lib/locations';
+import { ALL_TURKEY_LOCATION, isAllTurkeyCity, isTurkeyCountry } from '@/lib/turkeyScope';
 
 interface CityPickerBarProps {
   location?: AppLocation | null;
@@ -166,6 +167,13 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
   const cities = filtered.filter((o) => o.kind === 'city');
   const districts = filtered.filter((o) => o.kind === 'district');
 
+  const applyAllTurkey = () => {
+    onSelect({ ...ALL_TURKEY_LOCATION });
+    setQuery('');
+    setOpen(false);
+    setCountryMenu(false);
+  };
+
   const applyOption = (option: CityOption) => {
     onSelect(resolveMapFocus({
       country: option.country,
@@ -272,6 +280,21 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
 
       {open && (
         <div className="absolute top-[calc(100%+6px)] inset-x-0 z-50 max-h-[min(58vh,420px)] overflow-y-auto rounded-2xl bg-neutral-950/95 border border-white/10 shadow-2xl p-2">
+          {isTurkeyCountry(country) && (
+            <button
+              type="button"
+              onClick={applyAllTurkey}
+              className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-right text-[13px] cursor-pointer mb-1 ${
+                isAllTurkeyCity(location?.city) ? 'bg-brand-500/20 text-white' : 'text-brand-200 hover:bg-white/8'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Globe className="w-3.5 h-3.5 shrink-0" />
+                عموم تركيا
+              </span>
+              {isAllTurkeyCity(location?.city) && <Check className="w-3.5 h-3.5 text-brand-300" />}
+            </button>
+          )}
           <div className="px-2 pt-1 pb-2 text-[11px] text-zinc-400">
             مدن ومحافظات {country}
           </div>

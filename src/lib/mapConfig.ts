@@ -12,13 +12,14 @@ export const MAP_MIN_ZOOM = 4;
 export const MAP_MAX_ZOOM = 18;
 export const MAP_FOCUS_ZOOM = 16;
 
-export const DEFAULT_CATEGORY_KEYS = CATEGORIES.map((c) => c.key);
+export const DEFAULT_CATEGORY_KEYS = CATEGORIES.filter((c) => c.key !== 'airports').map((c) => c.key);
 
 export const EMERGENCY_CATEGORY_KEYS = ['hospitals', 'pharmacies', 'police'] as const;
 
 export const MIN_FETCH_ZOOM = 10;
 export const MAX_BOUNDS_SPAN_DEG = 2.4;
-export const FETCH_RADIUS_METERS = 18000;
+export const FETCH_RADIUS_METERS = 25000;
+export const MIN_CATEGORY_RESULTS = 150;
 
 export interface FilterBarGroup {
   id: string;

@@ -1,4 +1,6 @@
 import L from 'leaflet';
+import { financialKind } from '@/lib/financialKind';
+import { isMallPlace } from '@/lib/shoppingKind';
 
 export const CATEGORY_COLORS: Record<string, string> = {
   hotels: '#84cc16',
@@ -8,8 +10,12 @@ export const CATEGORY_COLORS: Record<string, string> = {
   hospitals: '#ef4444',
   pharmacies: '#f59e0b',
   markets: '#8b5cf6',
+  mall: '#6d28d9',
+  market: '#8b5cf6',
   attractions: '#ccff00',
   exchange: '#06b6d4',
+  bank: '#0e7490',
+  atm: '#155e75',
   mosques: '#7c3aed',
   transport: '#3b82f6',
   embassy: '#1d4ed8',
@@ -19,6 +25,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   salons: '#ec4899',
   fuel: '#f97316',
   bakeries: '#22c55e',
+  airports: '#0ea5e9',
   emergency: '#dc2626',
 };
 
@@ -30,17 +37,22 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   hospitals: '🏥',
   pharmacies: '💊',
   markets: '🛒',
+  mall: '🏬',
+  market: '🛒',
   attractions: '📸',
   exchange: '💱',
+  bank: '🏦',
+  atm: '🏧',
   mosques: '🕌',
   transport: '🚗',
   embassy: '🏛️',
   police: '🚓',
-  telecom: '📱',
+  telecom: '📶',
   nightlife: '🌙',
   salons: '✂️',
   fuel: '⛽',
   bakeries: '🥐',
+  airports: '✈️',
   emergency: '🚨',
 };
 
@@ -50,24 +62,34 @@ function emojiGlyph(key: string) {
 
 const iconCache = new Map<string, L.DivIcon>();
 
-export function getCategoryIcon(categoryKey: string, active = false) {
-  const cacheKey = `${categoryKey}:${active ? '1' : '0'}`;
+export function getCategoryIcon(categoryKey: string, active = false, hover = false) {
+  const cacheKey = `${categoryKey}:${active ? '1' : '0'}:${hover ? '1' : '0'}`;
   const cached = iconCache.get(cacheKey);
   if (cached) return cached;
-  const icon = makeCategoryIcon(categoryKey, active);
+  const icon = makeCategoryIcon(categoryKey, active, hover);
   iconCache.set(cacheKey, icon);
   return icon;
 }
 
-export function getListingIcon(place: { category_key: string; place_kind?: string; category_label?: string }, active = false) {
+export function isMallListing(place: { category_key?: string; place_kind?: string; category_label?: string; name?: string; description?: string; tags?: string[] }): boolean {
+  return isMallPlace(place);
+}
+
+export function getListingIcon(place: { category_key: string; place_kind?: string; category_label?: string; name?: string; description?: string; tags?: string[] }, active = false, hover = false) {
   if (place.category_key === 'hotels' && (place.place_kind === 'resort' || place.category_label === 'منتجع')) {
-    return getCategoryIcon('resort', active);
+    return getCategoryIcon('resort', active, hover);
   }
   if (place.category_key === 'restaurants') {
     const cafe = place.place_kind === 'cafe' || place.category_label === 'مقهى';
-    return getDiningIcon(cafe ? 'cafe' : 'restaurant', active);
+    return getDiningIcon(cafe ? 'cafe' : 'restaurant', active, hover);
   }
-  return getCategoryIcon(place.category_key, active);
+  if (place.category_key === 'markets') {
+    return getCategoryIcon(isMallListing(place) ? 'mall' : 'market', active, hover);
+  }
+  if (place.category_key === 'exchange') {
+    return getCategoryIcon(financialKind(place), active, hover);
+  }
+  return getCategoryIcon(place.category_key, active, hover);
 }
 
 const diningCache = new Map<string, L.DivIcon>();
@@ -98,15 +120,15 @@ function coffeeGlyph() {
   </g>`;
 }
 
-export function getDiningIcon(kind: 'restaurant' | 'cafe', active = false) {
-  const cacheKey = `dining:${kind}:${active ? 1 : 0}`;
+export function getDiningIcon(kind: 'restaurant' | 'cafe', active = false, hover = false) {
+  const cacheKey = `dining:${kind}:${active ? 1 : 0}:${hover ? 1 : 0}`;
   const cached = diningCache.get(cacheKey);
   if (cached) return cached;
   const color = kind === 'cafe' ? '#B0602A' : '#EA4335';
   const w = active ? 38 : 34;
   const h = active ? 48 : 43;
   const icon = L.divIcon({
-    className: `gmaps-dining-pin cat-${kind === 'cafe' ? 'cafe' : 'restaurants'}${active ? ' is-active' : ''}`,
+    className: `gmaps-dining-pin cat-${kind === 'cafe' ? 'cafe' : 'restaurants'}${active ? ' is-active' : ''}${hover ? ' is-hover' : ''}`,
     iconSize: [w, h],
     iconAnchor: [w / 2, h - 1],
     popupAnchor: [0, -h + 6],
@@ -125,13 +147,13 @@ export function getDiningIcon(kind: 'restaurant' | 'cafe', active = false) {
   return icon;
 }
 
-export function makeCategoryIcon(categoryKey: string, active = false) {
+export function makeCategoryIcon(categoryKey: string, active = false, hover = false) {
   const color = CATEGORY_COLORS[categoryKey] || '#ccff00';
   const size = active ? 50 : 42;
   const inner = active ? 42 : 34;
 
   return L.divIcon({
-    className: `waze-marker cat-${categoryKey}${active ? ' is-active' : ''}`,
+    className: `waze-marker cat-${categoryKey}${active ? ' is-active' : ''}${hover ? ' is-hover' : ''}`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size - 2],
     popupAnchor: [0, -size + 4],

@@ -687,8 +687,44 @@ html.dark .gmaps-directions .gmaps-mode-active {
 }
 
 .places-drawer {
-  transition: max-height 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: max-height;
+  min-height: 0;
+}
+
+.map-filter-shell {
+  scrollbar-width: thin;
+  scrollbar-color: #dadce0 transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.places-drawer .overflow-y-auto,
+.map-filter-shell {
+  overscroll-behavior: contain;
+}
+
+@keyframes map-pin-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(26, 115, 232, 0)); }
+  50% { transform: scale(1.16); filter: drop-shadow(0 0 10px rgba(26, 115, 232, 0.55)); }
+}
+
+.leaflet-marker-icon.is-hover,
+.leaflet-marker-icon.is-active.is-hover {
+  z-index: 700 !important;
+}
+
+.leaflet-marker-icon.is-hover .waze-poi-wrap,
+.leaflet-marker-icon.is-hover .gmaps-dining-pin-wrap {
+  animation: map-pin-pulse 850ms ease-in-out infinite;
+  transform-origin: 50% 92%;
+}
+
+.map-filter-rail {
+  width: 2.75rem;
+}
+
+@media (min-width: 768px) {
+  .map-filter-rail {
+    width: 13rem;
+  }
 }
 
 .place-hover-card {

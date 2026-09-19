@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Crosshair, List, Navigation, Route, X,
+  Crosshair, Navigation, Route, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { haversineKm, type MapBounds } from '@/lib/geo';
@@ -18,12 +18,17 @@ import DirectionsPanel from '@/components/map/DirectionsPanel';
 import LiveNavOverlay from '@/components/map/LiveNavOverlay';
 import { usePlacePreview } from '@/hooks/usePlacePreview';
 import { DEFAULT_MAP_CENTER } from '@/lib/mapConfig';
-import { FALLBACK_MAP_CENTER, bboxAround, getCityBoundingBox, locationIdentityEqual, resolveCatalogCity, safeMapCenter, type AppLocation } from '@/lib/cityCoordinates';
+import { FALLBACK_MAP_CENTER, bboxAround, getCityBoundingBox, locationsEqual, resolveCatalogCity, safeMapCenter, type AppLocation } from '@/lib/cityCoordinates';
 import { getMissionById, missionToListing } from '@/lib/iraqiMissions';
 import { reverseGeocode } from '@/services/geocode';
 import { rememberPlace } from '@/lib/routeHistory';
 import { planRoute, pointFromCoords, type RoutePoint, type RouteResult, type TravelMode } from '@/lib/routing';
 import CityPickerBar from '@/components/map/CityPickerBar';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { lookupCity } from '@/lib/cityCoordinates';
+import { isAllTurkeyCity } from '@/lib/turkeyScope';
+import { fetchPlaceCatalog, gisPlacesToListings } from '@/services/gisApi';
+import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, subscribeVault } from '@/lib/placeVault';
 
 interface MapNavigatorProps {
   searchLocation?: AppLocation | null;
@@ -35,7 +40,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   const hasChosenPlace = Boolean(searchLocation?.city || searchLocation?.district);
   const geo = useGeolocation({ autoStart: false });
 
-  const [dbListings, setDbListings] = useState<DirectoryListing[]>([]);
+  const [dbListings, setDbListings] = useState<DirectoryListing[]>(() => getVaultSnapshot());
   const [dbLoading, setDbLoading] = useState(true);
 
   const { selected: selectedCategories, search, setCategories: setSelectedCategories } = usePersistedMapFilters();
@@ -60,17 +65,6 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   const [focusedItem, setFocusedItem] = useState<DirectoryListing | null>(null);
   const [followUser, setFollowUser] = useState(false);
   const [flyToken, setFlyToken] = useState(0);
-  const [listExpanded, setListExpanded] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const saved = window.localStorage.getItem('flyway.placesPane');
-      if (saved === 'collapsed') return false;
-      if (saved === 'expanded') return true;
-    } catch {
-      /* ignore */
-    }
-    return window.matchMedia('(min-width: 1024px)').matches;
-  });
 
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const [originPoint, setOriginPoint] = useState<RoutePoint | null>(null);
@@ -87,25 +81,35 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   const pendingLocate = useRef(false);
   const { preview, show: showPreview, hide: hidePreview, clear: clearPreview } = usePlacePreview();
 
+  useEffect(() => subscribeVault(() => setDbListings(getVaultSnapshot())), []);
+
   useEffect(() => {
+    let cancelled = false;
     const ctrl = new AbortController();
     const timer = window.setTimeout(() => ctrl.abort(), 4000);
+    const cityEn = isAllTurkeyCity(searchLocation?.city) ? undefined : lookupCity(searchLocation?.city)?.en;
+    void bootPlaceVault();
+    setDbListings(getVaultSnapshot());
     (async () => {
-      try {
-        const { data: l } = await supabase.from('directory_listings').select('*').order('sort_order').abortSignal(ctrl.signal);
-        if (!ctrl.signal.aborted) setDbListings(l ?? []);
-      } catch {
-        if (!ctrl.signal.aborted) setDbListings([]);
-      } finally {
-        window.clearTimeout(timer);
-        if (!ctrl.signal.aborted) setDbLoading(false);
-      }
+      const supabasePromise = supabase.from('directory_listings').select('*').order('sort_order').abortSignal(ctrl.signal)
+        .then(({ data }) => (data ?? []) as DirectoryListing[])
+        .catch(() => [] as DirectoryListing[]);
+      const [rows, gisRows] = await Promise.all([
+        supabasePromise,
+        fetchPlaceCatalog({ city: cityEn, limit: 5000 }).catch(() => []),
+      ]);
+      if (cancelled) return;
+      const incoming = [...gisPlacesToListings(gisRows), ...rows];
+      if (incoming.length) mergeIntoVault(incoming);
+      setDbListings(getVaultSnapshot());
+      setDbLoading(false);
     })();
     return () => {
+      cancelled = true;
       window.clearTimeout(timer);
       ctrl.abort();
     };
-  }, []);
+  }, [searchLocation?.city]);
 
   const lastFocus = useRef<AppLocation | null>(null);
 
@@ -118,7 +122,9 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setFlyToken((t) => t + 1);
     const cityBox = next.poiId
       ? bboxAround(safe.lat, safe.lng, 1.2)
-      : getCityBoundingBox(
+      : next.district
+        ? bboxAround(safe.lat, safe.lng, 6)
+        : getCityBoundingBox(
           resolveCatalogCity({
             city: next.city,
             country: next.country,
@@ -142,7 +148,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
 
   useEffect(() => {
     if (!searchLocation) return;
-    if (lastFocus.current && locationIdentityEqual(lastFocus.current, searchLocation)) return;
+    if (lastFocus.current && locationsEqual(lastFocus.current, searchLocation)) return;
     flyToLocation(searchLocation, { resetRoute: !searchLocation.poiId });
   }, [searchLocation, flyToLocation]);
 
@@ -170,14 +176,6 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       source: 'gps',
     });
   }, [geo.position]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('flyway.placesPane', listExpanded ? 'expanded' : 'collapsed');
-    } catch {
-      /* ignore */
-    }
-  }, [listExpanded]);
 
   useEffect(() => {
     if (!originPoint || !destPoint) {
@@ -237,7 +235,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     lng: origin.lng,
   });
 
-  const { listings, loading, error, errorMessage, tooZoomedOut, fromFallback, refetch } = usePlacesQuery({
+  const { listings, categoryCounts, scopedTotal, loading, error, errorMessage, tooZoomedOut, fromFallback, refetch } = usePlacesQuery({
     bounds,
     zoom,
     categories: selectedCategories,
@@ -254,7 +252,66 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     return haversineKm(origin.lat, origin.lng, lat, lng);
   }, [origin]);
 
-  const formatDistance = (km: number) => (km < 1 ? `${Math.round(km * 1000)} م` : `${km.toFixed(1)} كم`);
+  const formatDistance = useCallback((km: number) => (
+    km < 1 ? `${Math.round(km * 1000)} م` : `${km.toFixed(1)} كم`
+  ), []);
+
+  const listDistanceLabel = useCallback((item: DirectoryListing) => {
+    const km = calcDistanceKm(item.lat, item.lng);
+    return km == null ? null : formatDistance(km);
+  }, [calcDistanceKm, formatDistance]);
+
+  const poiListing = useMemo(() => {
+    const poiId = searchLocation?.poiId;
+    if (!poiId) return null;
+    const mission = getMissionById(poiId);
+    if (mission) return missionToListing(mission);
+    const fromLists = listings.find((item) => item.id === poiId)
+      || dbListings.find((item) => item.id === poiId)
+      || getVaultSnapshot().find((item) => item.id === poiId);
+    if (fromLists) return fromLists;
+    if (!Number.isFinite(searchLocation.lat) || !Number.isFinite(searchLocation.lng)) return null;
+    return {
+      id: poiId,
+      category_key: searchLocation.categoryKey || 'attractions',
+      category_label: searchLocation.categoryKey || 'موقع',
+      name: searchLocation.label,
+      description: searchLocation.district || '',
+      country_name: searchLocation.country || '',
+      city: searchLocation.city || '',
+      address: searchLocation.district || searchLocation.label,
+      image: '',
+      rating: 0,
+      price_level: '',
+      tags: [],
+      proximity_note: `${searchLocation.lat.toFixed(5)}, ${searchLocation.lng.toFixed(5)}`,
+      phone: '',
+      hours: '',
+      is_featured: true,
+      sort_order: -80,
+      lat: searchLocation.lat,
+      lng: searchLocation.lng,
+      metro_station_name: '',
+      metro_walk_minutes: 0,
+      review_count: 0,
+      created_at: '',
+      nav_query: `${searchLocation.lat},${searchLocation.lng}`,
+    } satisfies DirectoryListing;
+  }, [dbListings, listings, searchLocation]);
+
+  const drawerListings = useMemo(() => {
+    if (!searchLocation?.poiId) return listings;
+    const cluster = listings.filter((item) => (
+      haversineKm(searchLocation.lat, searchLocation.lng, item.lat, item.lng) <= 2.4
+    ));
+    const pin = poiListing && !cluster.some((item) => item.id === poiListing.id)
+      ? poiListing
+      : cluster.find((item) => item.id === searchLocation.poiId) || poiListing;
+    const pool = cluster.length ? cluster : listings;
+    const rest = pool.filter((item) => item.id !== pin?.id);
+    return pin ? [pin, ...rest] : pool;
+  }, [listings, poiListing, searchLocation?.lat, searchLocation?.lng, searchLocation?.poiId]);
+
   const estWalkTime = (km: number) => {
     const m = Math.round((km / 5) * 60);
     return m < 60 ? `${m} دقيقة` : `${Math.floor(m / 60)} س ${m % 60} د`;
@@ -308,18 +365,17 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   }, [destPoint, geo.position]);
 
   useEffect(() => {
-    if (!searchLocation?.poiId) return;
+    if (!searchLocation?.poiId || !poiListing) return;
     const mission = getMissionById(searchLocation.poiId);
+    setSelected(poiListing);
+    setFocusedItem(poiListing);
     if (!mission) return;
-    const listing = missionToListing(mission);
     setDestPoint({
       label: mission.nameAr,
       lat: mission.lat,
       lng: mission.lng,
       source: 'geocode',
     });
-    setSelected(listing);
-    setFocusedItem(listing);
     setDirectionsOpen(true);
     if (geo.position) {
       setOriginPoint({
@@ -331,14 +387,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     } else {
       setOriginPoint(null);
     }
-  }, [searchLocation?.poiId, searchLocation?.lat, searchLocation?.lng]);
+  }, [geo.position, poiListing, searchLocation?.poiId]);
 
   const handleItemClick = useCallback((item: DirectoryListing) => {
     clearPreview();
     const point = pointFromCoords(item.lat, item.lng, item.name, 'place');
     if (point) applyRoutePoint('dest', point);
     setFocusedItem(item);
-    setListExpanded(false);
     if (geo.position) ensureGpsOrigin();
     if (directionsOpen || navigating) return;
     setSelected(item);
@@ -363,7 +418,6 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setDirectionsOpen(true);
     setTravelMode((m) => (m === 'walking' ? 'walking' : 'driving'));
     setRouteField('origin');
-    setListExpanded(false);
     if (geo.position) ensureGpsOrigin();
   };
 
@@ -372,7 +426,6 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setPickOnMap(false);
     if (focusedItem && !navigating) {
       setSelected(focusedItem);
-      setListExpanded(false);
     }
   };
 
@@ -456,11 +509,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   return (
     <div className="on-dark relative h-[calc(100dvh-4rem)] overflow-hidden bg-neutral-950">
       <div className="absolute inset-0 z-0 isolate overflow-hidden">
-        <MapView
+        <ErrorBoundary label="الخريطة" resetKey={`${searchLocation?.city || ''}:${selectedCategories.join(',')}`}>
+          <MapView
             center={mapCenter}
             flyToken={flyToken}
-            listings={listings}
+            listings={searchLocation?.poiId ? drawerListings : listings}
             focusedItem={directionsOpen || navigating ? null : focusedItem}
+            highlightedId={navigating ? null : preview?.place.id}
             userPosition={geo.position}
             followUser={followUser || navigating}
             route={routeData}
@@ -482,21 +537,19 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
             onMapClick={handleMapClick}
             directionsOpen={directionsOpen}
             navigating={navigating}
-            fitListings={hotelsOnly || diningOnly}
+            fitListings={(hotelsOnly || diningOnly) && !searchLocation?.district && !searchLocation?.poiId}
             fitListingsToken={hotelsOnly ? 'hotels' : diningOnly ? 'dining' : ''}
           />
+        </ErrorBoundary>
       </div>
 
       {!navigating && (
-      <div className="absolute top-3 inset-x-3 bottom-4 z-40 pointer-events-none flex flex-col items-stretch gap-2">
-        <div className="pointer-events-auto shrink-0 flex flex-col gap-2">
+      <div className="absolute top-3 inset-x-3 z-40 pointer-events-none flex flex-col items-center gap-2">
+        <div className="pointer-events-auto w-full max-w-xl">
           <CityPickerBar location={searchLocation} onSelect={handleCitySelect} />
-          <div className="gmaps-surface min-w-0 rounded-2xl bg-white/95 shadow-[0_2px_8px_rgba(60,64,67,0.18)] border border-black/[0.06] dark:bg-neutral-900/90 dark:border-white/10">
-            <CategoryFilterBar selected={selectedCategories} onChange={handleCategoriesChange} />
-          </div>
         </div>
         {(customLoc || tooZoomedOut || (loading && listings.length === 0) || error || fromFallback || (locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed)) && (
-          <div className="pointer-events-auto shrink-0 flex flex-wrap items-center gap-2 text-[11px]">
+          <div className="pointer-events-auto shrink-0 flex flex-wrap items-center justify-center gap-2 text-[11px] max-w-xl">
             {customLoc && (
               <span className="inline-flex items-center gap-1.5 bg-black/55 text-white rounded-full px-3 py-1 border border-white/10">
                 <Crosshair className="w-3 h-3 text-brand-300" />
@@ -529,36 +582,127 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
             )}
           </div>
         )}
-        <div className="flex-1 min-h-0 flex items-stretch gap-3 relative z-50" dir="ltr">
-          {directionsOpen && (
-            <div className="pointer-events-auto w-full lg:w-[380px] shrink-0 min-h-0 max-h-[58vh] lg:max-h-none lg:my-0">
-              <DirectionsPanel
-                origin={originPoint}
-                destination={destPoint}
-                destinationPlace={focusedItem}
-                userLocation={geo.position}
-                nearbyPlaces={listings}
-                mode={travelMode}
-                route={routeData}
-                loading={routeLoading}
-                error={routeError}
-                pickOnMap={pickOnMap}
-                onModeChange={setTravelMode}
-                onOriginChange={setOriginPoint}
-                onDestinationChange={setDestPoint}
-                onActiveFieldChange={onActiveFieldChange}
-                onSwap={swapRoute}
-                onClose={closeDirections}
-                onUseMyLocation={() => {
-                  requestMyLocation();
-                }}
-                onPickOnMapChange={setPickOnMap}
-                onStartNavigation={startLiveNavigation}
+      </div>
+      )}
+
+      {!navigating && (
+        <div dir="ltr" className="absolute z-40 left-4 top-[4.75rem] bottom-3 min-h-0 pointer-events-none flex flex-col items-start gap-2">
+          {!directionsOpen && (
+            <div
+              className="pointer-events-auto min-h-0 w-auto max-h-[calc(100%-11.5rem)] rounded-2xl bg-white/95 shadow-[0_8px_28px_rgba(15,23,42,0.18)] border border-black/[0.06] dark:bg-neutral-900/90 dark:border-white/10 overflow-y-auto overscroll-contain scroll-smooth touch-pan-y map-filter-shell"
+              onWheel={(e) => e.stopPropagation()}
+            >
+              <CategoryFilterBar
+                selected={selectedCategories}
+                onChange={handleCategoriesChange}
+                counts={categoryCounts}
+                total={scopedTotal}
               />
             </div>
           )}
+          <div className="pointer-events-auto mt-auto mb-[4.35rem] flex flex-col gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setDirectionsOpen((open) => !open)}
+              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
+                directionsOpen
+                  ? 'bg-[#e8f0fe] border-[#1a73e8]/40 text-[#1a73e8]'
+                  : 'bg-white border-slate-200 text-[#1a73e8]'
+              }`}
+              aria-label="من وإلى"
+              aria-pressed={directionsOpen}
+            >
+              <Route className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={locateMe}
+              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
+                followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-neutral-950/90 border-white/15 text-white'
+              }`}
+              aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
+              aria-pressed={followUser}
+            >
+              <Navigation className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+      )}
+
+      {navigating && (
+        <div className="absolute z-40 left-4 bottom-[5.5rem] pointer-events-auto">
+          <button
+            type="button"
+            onClick={locateMe}
+            className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
+              followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-neutral-950/90 border-white/15 text-white'
+            }`}
+            aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
+            aria-pressed={followUser}
+          >
+            <Navigation className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {!navigating && (
+      <div className="absolute top-[4.75rem] left-[4.75rem] md:left-[13.5rem] z-40 pointer-events-none hidden md:block">
+        {directionsOpen && (
+          <div className="pointer-events-auto w-[380px] max-h-[calc(100dvh-8rem)]">
+            <DirectionsPanel
+              origin={originPoint}
+              destination={destPoint}
+              destinationPlace={focusedItem}
+              userLocation={geo.position}
+              nearbyPlaces={listings}
+              mode={travelMode}
+              route={routeData}
+              loading={routeLoading}
+              error={routeError}
+              pickOnMap={pickOnMap}
+              onModeChange={setTravelMode}
+              onOriginChange={setOriginPoint}
+              onDestinationChange={setDestPoint}
+              onActiveFieldChange={onActiveFieldChange}
+              onSwap={swapRoute}
+              onClose={closeDirections}
+              onUseMyLocation={() => {
+                requestMyLocation();
+              }}
+              onPickOnMapChange={setPickOnMap}
+              onStartNavigation={startLiveNavigation}
+            />
+          </div>
+        )}
       </div>
+      )}
+
+      {!navigating && directionsOpen && (
+        <div className="absolute z-50 inset-x-3 top-[4.75rem] md:hidden pointer-events-auto max-h-[58vh]">
+          <DirectionsPanel
+            origin={originPoint}
+            destination={destPoint}
+            destinationPlace={focusedItem}
+            userLocation={geo.position}
+            nearbyPlaces={listings}
+            mode={travelMode}
+            route={routeData}
+            loading={routeLoading}
+            error={routeError}
+            pickOnMap={pickOnMap}
+            onModeChange={setTravelMode}
+            onOriginChange={setOriginPoint}
+            onDestinationChange={setDestPoint}
+            onActiveFieldChange={onActiveFieldChange}
+            onSwap={swapRoute}
+            onClose={closeDirections}
+            onUseMyLocation={() => {
+              requestMyLocation();
+            }}
+            onPickOnMapChange={setPickOnMap}
+            onStartNavigation={startLiveNavigation}
+          />
+        </div>
       )}
 
       {navigating && destPoint && (
@@ -572,65 +716,26 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         />
       )}
 
-      <div className={`absolute z-40 end-4 flex flex-col gap-2 ${
-        !navigating && !directionsOpen && listExpanded ? 'bottom-[min(58vh,580px)]' : 'bottom-24'
-      }`}>
-        {!directionsOpen && !navigating && (
-        <button
-          type="button"
-          onClick={() => setDirectionsOpen(true)}
-          className="w-12 h-12 rounded-full bg-white border border-slate-200 text-[#1a73e8] shadow-xl flex items-center justify-center cursor-pointer"
-          aria-label="من وإلى"
-        >
-          <Route className="w-5 h-5" />
-        </button>
-        )}
-        {!directionsOpen && !navigating && (
-        <button
-          type="button"
-          onClick={() => setListExpanded((v) => !v)}
-          className="w-12 h-12 rounded-full bg-white border-2 border-neutral-900 text-neutral-950 shadow-xl flex items-center justify-center cursor-pointer dark:bg-neutral-950 dark:border-white dark:text-white"
-          aria-label={listExpanded ? 'طي قائمة الأماكن' : 'عرض قائمة الأماكن'}
-          aria-pressed={listExpanded}
-        >
-          <List className="w-5 h-5" />
-        </button>
-        )}
-        <button
-          type="button"
-          onClick={locateMe}
-          className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
-            followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-neutral-950/90 border-white/15 text-white'
-          }`}
-          aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
-          aria-pressed={followUser}
-        >
-          <Navigation className="w-5 h-5" />
-        </button>
-      </div>
-
       {!navigating && (
-        <div className={`absolute z-50 inset-x-3 bottom-3 lg:inset-x-auto lg:w-[360px] lg:end-4 pointer-events-none ${
-          directionsOpen ? 'hidden lg:block' : ''
-        }`}>
-          <PlacesDrawer
-            expanded={listExpanded}
-            onToggle={() => setListExpanded((v) => !v)}
-            count={listings.length}
-          >
-            <PlacesList
-              items={listings}
-              loading={(loading || dbLoading) && listings.length === 0}
-              activeId={focusedItem?.id}
-              onSelect={handleItemClick}
-              onPreview={showPreview}
-              onPreviewEnd={hidePreview}
-              formatDistance={(item) => {
-                const km = calcDistanceKm(item.lat, item.lng);
-                return km == null ? null : formatDistance(km);
-              }}
-            />
-          </PlacesDrawer>
+        <div
+          className="absolute z-50 right-3 top-[4.75rem] bottom-3 w-[min(calc(100%-5.5rem),340px)] md:w-[340px] pointer-events-none flex flex-col max-md:top-auto max-md:left-[4.75rem] max-md:w-auto max-md:h-[min(52vh,520px)]"
+          onWheel={(e) => e.stopPropagation()}
+        >
+          <ErrorBoundary label="قائمة الأماكن" resetKey={selectedCategories.join(',')}>
+            <PlacesDrawer count={drawerListings.length}>
+              <PlacesList
+                items={drawerListings}
+                loading={(loading || dbLoading) && drawerListings.length === 0}
+                activeId={focusedItem?.id}
+                hoveredId={preview?.place.id}
+                scrollToId={preview?.source === 'marker' ? preview.place.id : preview ? undefined : focusedItem?.id}
+                onSelect={handleItemClick}
+                onPreview={showPreview}
+                onPreviewEnd={hidePreview}
+                formatDistance={listDistanceLabel}
+              />
+            </PlacesDrawer>
+          </ErrorBoundary>
         </div>
       )}
 
@@ -651,7 +756,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         />
       )}
 
-      {preview && !selected && !navigating && (
+      {preview && !selected && !navigating && preview.source === 'marker' && (
         <PlaceHoverCard
           place={preview.place}
           x={preview.x}

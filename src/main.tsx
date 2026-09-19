@@ -3,12 +3,15 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
 import './index.css';
+import { bootPlaceVault } from '@/lib/placeVault';
+
+void bootPlaceVault();
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 15 * 60_000,
-      gcTime: 45 * 60_000,
+      gcTime: Infinity,
       retry: 0,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,

@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DirectoryListing } from '@/types';
-import { boundsSpanDeg, haversineKm, padBounds, pointInBounds, roundBounds, type MapBounds } from '@/lib/geo';
+import { haversineKm, roundBounds, type MapBounds } from '@/lib/geo';
 import { fetchPlacesFromOverpass, fetchPlacesInBounds } from '@/services/overpassApi';
 import { isAuthenticVenueName, isNearDuplicate } from '@/lib/placeAuthenticity';
-import { pinListing } from '@/lib/placePrecision';
+import { canonicalFuelBakeryKey, pinListing } from '@/lib/placePrecision';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-
-const MAX_SPAN_DEG = 0.38;
-const MIN_ZOOM = 12;
 
 interface UseViewportPlacesArgs {
   bounds: MapBounds | null;
@@ -59,29 +56,27 @@ export function useViewportPlaces({
       east: Number(east),
     };
     const currentZoom = Number(zoomStr);
-    const padded = padBounds(currentBounds);
-    const span = boundsSpanDeg(padded);
-    if (currentZoom < MIN_ZOOM || span > MAX_SPAN_DEG) {
-      setTooZoomedOut(true);
-      setLoading(false);
-      return;
-    }
+    void currentZoom;
 
     setTooZoomedOut(false);
     const id = ++requestId.current;
     setLoading(true);
     setError(false);
 
-    const rounded = roundBounds(padded);
+    const rounded = roundBounds(currentBounds);
     const here = originRef.current;
 
     (async () => {
-      let places = await fetchPlacesInBounds(rounded, categories);
-      if (places.length === 0 && here) {
+      let places: DirectoryListing[] = [];
+      if (here) {
         const nearby = await Promise.all(
           categories.map((key) => fetchPlacesFromOverpass(here.lat, here.lng, key)),
         );
         places = nearby.flat();
+      }
+      if (places.length < 50) {
+        const extra = await fetchPlacesInBounds(rounded, categories, 500);
+        places = [...places, ...extra];
       }
       if (id !== requestId.current) return;
       setOsmById((prev) => {
@@ -116,13 +111,10 @@ export function useViewportPlaces({
     for (const item of dbListings) ingest(item);
 
     const q = debouncedSearch.toLowerCase();
-    const view = bounds ? padBounds(bounds, 0.15) : null;
 
     const filtered = accepted.filter((item) => {
-      if (categories.length > 0 && !categories.includes(item.category_key)) return false;
-      const inView = view ? pointInBounds(item.lat, item.lng, view) : true;
-      const nearOrigin = origin ? haversineKm(origin.lat, origin.lng, item.lat, item.lng) <= 5 : false;
-      if (!inView && !nearOrigin) return false;
+      if (categories.length > 0 && !categories.includes(canonicalFuelBakeryKey(item))
+        && !(item.category_key === 'police' && categories.includes('embassy'))) return false;
       if (q) {
         const hay = [
           item.name,

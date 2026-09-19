@@ -1,5 +1,6 @@
 import { DEFAULT_MAP_CENTER } from '@/lib/mapConfig';
 import { haversineKm } from '@/lib/geo';
+import { cityIntegrityKey, cityLandBbox } from '@/lib/coordIntegrity';
 
 export const CITY_ZOOM = 14;
 export const DISTRICT_ZOOM = 16;
@@ -38,6 +39,7 @@ export interface DistrictCoordinate {
 
 export const CITY_COORDINATES: Record<string, CityCoordinate> = {
   istanbul: { name: 'إسطنبول', en: 'Istanbul', country: 'تركيا', countryEn: 'Turkey', countryCode: 'TR', lat: 41.0082, lng: 28.9784, zoom: CITY_ZOOM },
+  allturkey: { name: 'عموم تركيا', en: 'All Turkey', country: 'تركيا', countryEn: 'Turkey', countryCode: 'TR', lat: 39.14, lng: 35.17, zoom: 6 },
   ankara: { name: 'أنقرة', en: 'Ankara', country: 'تركيا', countryEn: 'Turkey', countryCode: 'TR', lat: 39.9334, lng: 32.8597, zoom: CITY_ZOOM },
   izmir: { name: 'إزمير', en: 'Izmir', country: 'تركيا', countryEn: 'Turkey', countryCode: 'TR', lat: 38.4237, lng: 27.1428, zoom: CITY_ZOOM },
   antalya: { name: 'أنطاليا', en: 'Antalya', country: 'تركيا', countryEn: 'Turkey', countryCode: 'TR', lat: 36.8969, lng: 30.7133, zoom: CITY_ZOOM },
@@ -127,6 +129,45 @@ ALIAS_TO_KEY[normalizeName('دبـي')] = 'dubai';
 ALIAS_TO_KEY[normalizeName('DXB')] = 'dubai';
 ALIAS_TO_KEY[normalizeName('Dubai City')] = 'dubai';
 ALIAS_TO_KEY[normalizeName('Konstantiniyye')] = 'istanbul';
+ALIAS_TO_KEY[normalizeName('عموم تركيا')] = 'allturkey';
+ALIAS_TO_KEY[normalizeName('All Turkey')] = 'allturkey';
+ALIAS_TO_KEY[normalizeName('Cappadocia')] = 'nevsehir';
+ALIAS_TO_KEY[normalizeName('Kapadokya')] = 'nevsehir';
+ALIAS_TO_KEY[normalizeName('كبادوكيا')] = 'nevsehir';
+ALIAS_TO_KEY[normalizeName('Goreme')] = 'nevsehir';
+ALIAS_TO_KEY[normalizeName('Göreme')] = 'nevsehir';
+ALIAS_TO_KEY[normalizeName('غوريم')] = 'nevsehir';
+ALIAS_TO_KEY[normalizeName('Urgup')] = 'nevsehir';
+ALIAS_TO_KEY[normalizeName('طرابزون')] = 'trabzon';
+ALIAS_TO_KEY[normalizeName('Konak')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Bornova')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Karsiyaka')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Karşıyaka')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Alsancak')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Buca')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Cigli')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Bayrakli')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Gaziemir')] = 'izmir';
+ALIAS_TO_KEY[normalizeName('Kepez')] = 'antalya';
+ALIAS_TO_KEY[normalizeName('Muratpasa')] = 'antalya';
+ALIAS_TO_KEY[normalizeName('Muratpaşa')] = 'antalya';
+ALIAS_TO_KEY[normalizeName('Konyaalti')] = 'antalya';
+ALIAS_TO_KEY[normalizeName('Konyaaltı')] = 'antalya';
+ALIAS_TO_KEY[normalizeName('Lara')] = 'antalya';
+ALIAS_TO_KEY[normalizeName('Kaleici')] = 'antalya';
+ALIAS_TO_KEY[normalizeName('Ortahisar')] = 'trabzon';
+ALIAS_TO_KEY[normalizeName('Akcaabat')] = 'trabzon';
+ALIAS_TO_KEY[normalizeName('Yomra')] = 'trabzon';
+ALIAS_TO_KEY[normalizeName('Kizilay')] = 'ankara';
+ALIAS_TO_KEY[normalizeName('Cankaya')] = 'ankara';
+ALIAS_TO_KEY[normalizeName('Çankaya')] = 'ankara';
+ALIAS_TO_KEY[normalizeName('Kecioren')] = 'ankara';
+ALIAS_TO_KEY[normalizeName('Yenimahalle')] = 'ankara';
+ALIAS_TO_KEY[normalizeName('Osmangazi')] = 'bursa';
+ALIAS_TO_KEY[normalizeName('Nilufer')] = 'bursa';
+ALIAS_TO_KEY[normalizeName('Nilüfer')] = 'bursa';
+ALIAS_TO_KEY[normalizeName('Yildirim')] = 'bursa';
+ALIAS_TO_KEY[normalizeName('Mudanya')] = 'bursa';
 
 export const DISTRICT_COORDINATES: Record<string, DistrictCoordinate[]> = {
   Istanbul_TR: [
@@ -138,6 +179,13 @@ export const DISTRICT_COORDINATES: Record<string, DistrictCoordinate[]> = {
     { name: 'كاديكوي', en: 'Kadikoy', query: 'Kadikoy, Istanbul, Turkey', lat: 40.9881, lng: 29.025 },
     { name: 'شيشلي', en: 'Sisli', query: 'Sisli, Istanbul, Turkey', lat: 41.0602, lng: 28.987 },
     { name: 'أمينونو', en: 'Eminonu', query: 'Eminonu, Istanbul, Turkey', lat: 41.0167, lng: 28.9744 },
+    { name: 'لاليلي', en: 'Laleli', query: 'Laleli, Istanbul, Turkey', lat: 41.0104, lng: 28.9568 },
+    { name: 'أكساراي', en: 'Aksaray', query: 'Aksaray, Istanbul, Turkey', lat: 41.0108, lng: 28.9474 },
+    { name: 'بيوغلو', en: 'Beyoglu', query: 'Beyoglu, Istanbul, Turkey', lat: 41.0358, lng: 28.9779 },
+    { name: 'ليفنت', en: 'Levent', query: 'Levent, Istanbul, Turkey', lat: 41.0805, lng: 29.0138 },
+    { name: 'ماسلاك', en: 'Maslak', query: 'Maslak, Istanbul, Turkey', lat: 41.108, lng: 29.0238 },
+    { name: 'استقلال', en: 'Istiklal', query: 'Istiklal Caddesi, Istanbul, Turkey', lat: 41.0339, lng: 28.9775 },
+    { name: 'شارع بغداد', en: 'Bagdat Caddesi', query: 'Bagdat Caddesi, Kadikoy, Istanbul, Turkey', lat: 40.9662, lng: 29.0628 },
     { name: 'أتاشهير', en: 'Atasehir', query: 'Atasehir, Istanbul, Turkey', lat: 40.9833, lng: 29.1167 },
     { name: 'باكيركوي', en: 'Bakirkoy', query: 'Bakirkoy, Istanbul, Turkey', lat: 40.9833, lng: 28.85 },
   ],
@@ -151,6 +199,7 @@ export const DISTRICT_COORDINATES: Record<string, DistrictCoordinate[]> = {
     { name: 'كاليتشي', en: 'Kaleici', query: 'Kaleici, Antalya, Turkey', lat: 36.885, lng: 30.7046 },
     { name: 'لارا', en: 'Lara', query: 'Lara, Antalya, Turkey', lat: 36.855, lng: 30.736 },
     { name: 'كوني آلتي', en: 'Konyaalti', query: 'Konyaalti, Antalya, Turkey', lat: 36.884, lng: 30.65 },
+    { name: 'كبز', en: 'Kepez', query: 'Kepez, Antalya, Turkey', lat: 36.9204, lng: 30.7058 },
     { name: 'سايد', en: 'Side', query: 'Side, Antalya, Turkey', lat: 36.7667, lng: 31.3889 },
   ],
   Trabzon_TR: [
@@ -162,6 +211,26 @@ export const DISTRICT_COORDINATES: Record<string, DistrictCoordinate[]> = {
     { name: 'ألسانجاك', en: 'Alsancak', query: 'Alsancak, Izmir, Turkey', lat: 38.439, lng: 27.144 },
     { name: 'كوناك', en: 'Konak', query: 'Konak, Izmir, Turkey', lat: 38.4192, lng: 27.1287 },
     { name: 'كارشياكا', en: 'Karsiyaka', query: 'Karsiyaka, Izmir, Turkey', lat: 38.455, lng: 27.11 },
+    { name: 'بورنوفا', en: 'Bornova', query: 'Bornova, Izmir, Turkey', lat: 38.462, lng: 27.216 },
+  ],
+  Bursa_TR: [
+    { name: 'نيلوفر', en: 'Nilufer', query: 'Nilufer, Bursa, Turkey', lat: 40.213, lng: 28.978 },
+    { name: 'عثمان غازي', en: 'Osmangazi', query: 'Osmangazi, Bursa, Turkey', lat: 40.195, lng: 29.06 },
+    { name: 'يلدرم', en: 'Yildirim', query: 'Yildirim, Bursa, Turkey', lat: 40.184, lng: 29.1 },
+  ],
+  Bodrum_TR: [
+    { name: 'مركز بودروم', en: 'Bodrum Center', query: 'Bodrum Marina, Turkey', lat: 37.0344, lng: 27.4305 },
+    { name: 'بيتز', en: 'Bitez', query: 'Bitez, Bodrum, Turkey', lat: 37.038, lng: 27.4 },
+    { name: 'تورغوترئيس', en: 'Turgutreis', query: 'Turgutreis, Bodrum, Turkey', lat: 37.007, lng: 27.26 },
+  ],
+  Nevsehir_TR: [
+    { name: 'غوريم', en: 'Goreme', query: 'Goreme, Cappadocia, Turkey', lat: 38.6431, lng: 34.8289 },
+    { name: 'أورغوب', en: 'Urgup', query: 'Urgup, Cappadocia, Turkey', lat: 38.6314, lng: 34.912 },
+    { name: 'أفانوس', en: 'Avanos', query: 'Avanos, Cappadocia, Turkey', lat: 38.715, lng: 34.8467 },
+  ],
+  Gaziantep_TR: [
+    { name: 'شاهين باي', en: 'Sahinbey', query: 'Sahinbey, Gaziantep, Turkey', lat: 37.059, lng: 37.378 },
+    { name: 'شهيت كامل', en: 'Sehitkamil', query: 'Sehitkamil, Gaziantep, Turkey', lat: 37.078, lng: 37.382 },
   ],
   Dubai_AE: [
     { name: 'وسط دبي', en: 'Downtown Dubai', query: 'Downtown Dubai, UAE', lat: 25.1972, lng: 55.2744 },
@@ -337,6 +406,12 @@ export function fitCityBbox(
 export function getCityBoundingBox(name?: string | null, radiusKm = 18) {
   const city = lookupCity(name);
   if (!city) return null;
+  if (city.en === 'All Turkey') {
+    return { south: 35.82, west: 25.66, north: 42.32, east: 44.82 };
+  }
+  const landKey = cityIntegrityKey(city.en, city.countryEn) || cityIntegrityKey(city.name);
+  const land = landKey ? cityLandBbox(landKey) : null;
+  if (land) return land;
   const radius = city.en === 'Dubai' || city.en === 'Istanbul' ? 22 : radiusKm;
   return bboxAround(city.lat, city.lng, radius);
 }
@@ -364,7 +439,7 @@ export function getMajorCitiesForCountry(countryName?: string | null): CityCoord
   if (!countryName) return Object.values(CITY_COORDINATES);
   const q = normalizeName(countryName);
   if (TURKEY_COUNTRY_KEYS.has(q)) {
-    return Object.values(CITY_COORDINATES).filter((city) => city.countryCode === 'TR');
+    return Object.values(CITY_COORDINATES).filter((city) => city.countryCode === 'TR' && city.en !== 'All Turkey');
   }
   return Object.values(CITY_COORDINATES).filter(
     (city) =>
@@ -391,24 +466,135 @@ export function getDistrictsForCity(cityName?: string | null, countryCode?: stri
   return DISTRICT_COORDINATES[`${city.en}_${code}`] ?? [];
 }
 
+const DISTRICT_EXTRA_LABELS: Record<string, string[]> = {
+  taksim: ['تقسيم', 'ميدان تقسيم', 'taksim square', 'ميدان تقسيم'],
+  sultanahmet: ['السلطان احمد', 'sultan ahmet'],
+  kadikoy: ['كاديكوي', 'kadıköy', 'kadiköy'],
+  nisantasi: ['نيشانتاشي', 'nişantaşı'],
+  konyaalti: ['كونالتي', 'كونيالتي', 'konyaaltı', 'konyalti', 'kunalti'],
+  uzungol: ['اوزنجول', 'أوزنجول', 'uzungöl', 'uzun gol', 'uzungöl'],
+  kaleici: ['كاليتي', 'البلده القديمه', 'old town'],
+  alsancak: ['السانجاك', 'alsancak'],
+  kizilay: ['قيزيل اي', 'kızılay'],
+  kepez: ['كبز', 'kepez'],
+  istiklal: ['استقلال', 'شارع الاستقلال', 'istiklal caddesi', 'istiklal'],
+  bagdatcaddesi: ['شارع بغداد', 'bagdat', 'bağdat caddesi'],
+};
+
+function districtSearchLabels(district: DistrictCoordinate): string[] {
+  const extra = DISTRICT_EXTRA_LABELS[normalizeName(district.en)] || [];
+  return [district.name, district.en, district.query, ...extra];
+}
+
 export function lookupDistrict(
   districtName: string,
   cityName?: string | null,
   countryName?: string | null,
 ): { district: DistrictCoordinate; city: CityCoordinate } | null {
   const q = normalizeName(districtName);
+  if (!q) return null;
   const cities = cityName
     ? [lookupCity(cityName)].filter((c): c is CityCoordinate => Boolean(c))
     : countryName
       ? getMajorCitiesForCountry(countryName)
       : Object.values(CITY_COORDINATES);
 
+  let fuzzy: { district: DistrictCoordinate; city: CityCoordinate; len: number } | null = null;
   for (const city of cities) {
     for (const district of getDistrictsForCity(city.en, city.countryCode)) {
-      if (normalizeName(district.name) === q || normalizeName(district.en) === q) {
-        return { district, city };
+      for (const label of districtSearchLabels(district)) {
+        const token = normalizeName(label);
+        if (!token) continue;
+        if (token === q) return { district, city };
+        if (token.length >= 4 && (q.includes(token) || token.includes(q))) {
+          if (!fuzzy || token.length > fuzzy.len) fuzzy = { district, city, len: token.length };
+        }
       }
     }
+  }
+  return fuzzy ? { district: fuzzy.district, city: fuzzy.city } : null;
+}
+
+export interface LocaleHit {
+  city: CityCoordinate;
+  district: DistrictCoordinate | null;
+  lat: number;
+  lng: number;
+  zoom: number;
+  label: string;
+  districtName: string | null;
+}
+
+export function detectLocaleInText(text: string, hintCity?: string | null): LocaleHit | null {
+  const n = normalizeName(text);
+  if (!n) return null;
+
+  const turkeyCities = Object.values(CITY_COORDINATES).filter(
+    (city) => city.countryEn === 'Turkey' && city.en !== 'All Turkey',
+  );
+
+  let bestDistrict: { district: DistrictCoordinate; city: CityCoordinate; len: number } | null = null;
+  const hinted = lookupCity(hintCity);
+  const districtCities = hinted?.countryCode === 'TR' ? [hinted, ...turkeyCities] : turkeyCities;
+  const seen = new Set<string>();
+  for (const city of districtCities) {
+    if (seen.has(city.en)) continue;
+    seen.add(city.en);
+    for (const district of getDistrictsForCity(city.en, city.countryCode)) {
+      for (const label of districtSearchLabels(district)) {
+        const token = normalizeName(label);
+        if (token.length < 4 || !n.includes(token)) continue;
+        if (!bestDistrict || token.length > bestDistrict.len) {
+          bestDistrict = { district, city, len: token.length };
+        }
+      }
+    }
+  }
+
+  let bestCity: { city: CityCoordinate; len: number } | null = null;
+  for (const city of turkeyCities) {
+    for (const label of [city.name, city.en]) {
+      const token = normalizeName(label);
+      if (token.length < 4 || !n.includes(token)) continue;
+      if (!bestCity || token.length > bestCity.len) bestCity = { city, len: token.length };
+    }
+  }
+
+  if (bestDistrict) {
+    const city = bestDistrict.city;
+    return {
+      city,
+      district: bestDistrict.district,
+      lat: bestDistrict.district.lat,
+      lng: bestDistrict.district.lng,
+      zoom: DISTRICT_ZOOM,
+      label: `${bestDistrict.district.name}، ${city.name}`,
+      districtName: bestDistrict.district.name,
+    };
+  }
+
+  if (bestCity) {
+    return {
+      city: bestCity.city,
+      district: null,
+      lat: bestCity.city.lat,
+      lng: bestCity.city.lng,
+      zoom: CITY_ZOOM,
+      label: bestCity.city.name,
+      districtName: null,
+    };
+  }
+
+  if (hinted?.countryEn === 'Turkey' && hinted.en !== 'All Turkey') {
+    return {
+      city: hinted,
+      district: null,
+      lat: hinted.lat,
+      lng: hinted.lng,
+      zoom: hinted.zoom,
+      label: hinted.name,
+      districtName: null,
+    };
   }
   return null;
 }
@@ -429,7 +615,8 @@ export function nearestMajorCity(
   countryName?: string | null,
   maxKm = 95,
 ): CityCoordinate | null {
-  const pool = countryName ? getMajorCitiesForCountry(countryName) : Object.values(CITY_COORDINATES);
+  const pool = (countryName ? getMajorCitiesForCountry(countryName) : Object.values(CITY_COORDINATES))
+    .filter((city) => city.en !== 'All Turkey');
   const cities = pool.length ? pool : Object.values(CITY_COORDINATES);
   let best: CityCoordinate | null = null;
   let bestKm = Infinity;
@@ -477,6 +664,9 @@ export function catalogBoundsForCity(
   city: CityCoordinate | null,
   origin?: { lat: number; lng: number } | null,
 ): { south: number; west: number; north: number; east: number } {
+  if (city?.en === 'All Turkey') {
+    return { south: 35.82, west: 25.66, north: 42.32, east: 44.82 };
+  }
   if (city) {
     return getCityBoundingBox(city.name, 22) ?? bboxAround(city.lat, city.lng, 22);
   }

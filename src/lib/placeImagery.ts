@@ -1,3 +1,5 @@
+import { isRejectedTransportStock, TRANSPORT_CATEGORY_PHOTOS, transportGalleryFor } from '@/lib/transportPhotos';
+
 const CATEGORY_PHOTOS: Record<string, string[]> = {
   hotels: [
     'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=80',
@@ -43,21 +45,18 @@ const CATEGORY_PHOTOS: Record<string, string[]> = {
     'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?auto=format&fit=crop&w=1600&q=80',
     'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?auto=format&fit=crop&w=1600&q=80',
   ],
-  transport: [
-    'https://images.unsplash.com/photo-1485291571150-772bcfc10da5?auto=format&fit=crop&w=1600&q=80',
-    'https://images.unsplash.com/photo-1449965407474-8f6c8d4a0a3b?auto=format&fit=crop&w=1600&q=80',
-    'https://images.unsplash.com/photo-1549317661-bd32c8ce16db?auto=format&fit=crop&w=1600&q=80',
-  ],
+  transport: TRANSPORT_CATEGORY_PHOTOS,
   embassy: [
     'https://images.unsplash.com/photo-1526304640172-767fa768cbac?auto=format&fit=crop&w=1600&q=80',
     'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=80',
     'https://images.unsplash.com/photo-1436450412740-6b988f486c6b?auto=format&fit=crop&w=1600&q=80',
   ],
   police: [
-    'https://images.unsplash.com/photo-1436450412740-6b988f486c6b?auto=format&fit=crop&w=1600&q=80',
     'https://images.unsplash.com/photo-1589578527966-fdac0f44566c?auto=format&fit=crop&w=1600&q=80',
     'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?auto=format&fit=crop&w=1600&q=80',
     'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1575505586569-646b2ca898fc?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1600&q=80',
   ],
   telecom: [
     'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1600&q=80',
@@ -73,20 +72,70 @@ const CATEGORY_PHOTOS: Record<string, string[]> = {
     'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1600&q=80',
   ],
   fuel: [
-    'https://images.unsplash.com/photo-1465447142348-e9952c393450?auto=format&fit=crop&w=1600&q=80',
     'https://images.unsplash.com/photo-1527018601619-a508c7d3b00d?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1573348722427-f1a773268556?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1600&q=80',
+    'https://images.pexels.com/photos/248280/pexels-photo-248280.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'https://images.pexels.com/photos/33688/pexels-photo-33688.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'https://images.pexels.com/photos/1054218/pexels-photo-1054218.jpeg?auto=compress&cs=tinysrgb&w=1600',
   ],
   bakeries: [
+    'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1600&q=80',
     'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1600&q=80',
-    'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=1600&q=80',
+  ],
+  airports: [
+    'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1464037866556-6812c9d1c72e?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1570710891163-6d3b5c47248b?auto=format&fit=crop&w=1600&q=80',
   ],
 };
 
-const OFFICIAL_BUILDING_CATS = new Set(['hospitals', 'police', 'embassy']);
+const OFFICIAL_BUILDING_CATS = new Set(['hospitals', 'police', 'embassy', 'airports', 'fuel']);
 const REJECTED_PHOTO_IDS = [
   '1568605117036-5fe5e7bab0b7',
   '1516549655169-df83a0774514',
+  '1519494026892-80bbd2d6fd0d',
+  '1586773860418-d10276267080',
+  '1538108149393-fbbd81895907',
+  '1576091160399-112ba8d25d1d',
+  '1551076805-e1869033e561',
 ];
+const MEDICAL_PHOTO_RE = /hospital|clinic|hastane|medical|ambulance|ward|surgery/i;
+
+const FUEL_BRAND_PHOTOS: Array<{ test: RegExp; urls: string[] }> = [
+  { test: /opet|أوبيت/i, urls: [
+    'https://images.unsplash.com/photo-1527018601619-a508c7d3b00d?auto=format&fit=crop&w=1600&q=80',
+    'https://images.pexels.com/photos/248280/pexels-photo-248280.jpeg?auto=compress&cs=tinysrgb&w=1600',
+  ] },
+  { test: /shell|شل/i, urls: [
+    'https://images.unsplash.com/photo-1573348722427-f1a773268556?auto=format&fit=crop&w=1600&q=80',
+    'https://images.pexels.com/photos/1054218/pexels-photo-1054218.jpeg?auto=compress&cs=tinysrgb&w=1600',
+  ] },
+  { test: /\bbp\b|بي بي/i, urls: [
+    'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1600&q=80',
+    'https://images.pexels.com/photos/33688/pexels-photo-33688.jpeg?auto=compress&cs=tinysrgb&w=1600',
+  ] },
+  { test: /petrol\s*ofisi|\bpo\b|بترول\s*أوفيسي/i, urls: [
+    'https://images.pexels.com/photos/248280/pexels-photo-248280.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'https://images.unsplash.com/photo-1527018601619-a508c7d3b00d?auto=format&fit=crop&w=1600&q=80',
+  ] },
+  { test: /aytemiz|أيتميز/i, urls: [
+    'https://images.unsplash.com/photo-1573348722427-f1a773268556?auto=format&fit=crop&w=1600&q=80',
+    'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1600&q=80',
+  ] },
+];
+
+function fuelPumpPhoto(place: { id: string; name?: string; description?: string }): string {
+  const hay = `${place.name || ''} ${place.description || ''}`;
+  const h = hashId(place.id || hay);
+  for (const row of FUEL_BRAND_PHOTOS) {
+    if (row.test.test(hay)) return row.urls[h % row.urls.length];
+  }
+  const photos = CATEGORY_PHOTOS.fuel;
+  return photos[h % photos.length];
+}
 
 function unsplash(id: string) {
   return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1600&q=80`;
@@ -188,6 +237,8 @@ function hashId(id: string): number {
 }
 
 function isRejectedImage(url: string): boolean {
+  if (isRejectedTransportStock(url)) return true;
+  if (MEDICAL_PHOTO_RE.test(url)) return true;
   return REJECTED_PHOTO_IDS.some((id) => url.includes(id));
 }
 
@@ -260,10 +311,17 @@ type GalleryPlace = {
   description?: string;
   tags?: string[];
   category_label?: string;
+  address?: string;
 };
 
 export function placeGallery(place: GalleryPlace): string[] {
+  if (place.category_key === 'fuel') {
+    return [fuelPumpPhoto(place)];
+  }
   const owned = uniqueUrls([...(place.images || []), place.image || '']);
+  if (place.category_key === 'transport') {
+    return uniqueUrls(transportGalleryFor(place)).slice(0, 4);
+  }
   if (place.category_key === 'restaurants') {
     if (owned.length >= 3) return owned.slice(0, 8);
     return uniqueUrls([...owned, placeHeroImage(place)]).slice(0, 8);
@@ -277,7 +335,10 @@ export function placeGallery(place: GalleryPlace): string[] {
   return uniqueUrls([...owned, ...curated]).slice(0, 8);
 }
 
-export function galleryCaption(index: number, kind?: PlaceKind): string {
+export function galleryCaption(index: number, kind?: PlaceKind, categoryKey?: string): string {
+  if (categoryKey === 'transport') {
+    return ['واجهة الفرع', 'الأسطول أو الرصيف', 'صالة الانتظار'][index] || `صورة ${index + 1}`;
+  }
   if (kind === 'restaurant') {
     return ['واجهة المطعم', 'صالة الطعام', 'طبق التوقيع'][index] || `صورة ${index + 1}`;
   }
@@ -308,6 +369,12 @@ export function placeHeroImage(place: {
   if (place.category_key === 'hotels') {
     return placeGallery(place)[0];
   }
+  if (place.category_key === 'fuel') {
+    return fuelPumpPhoto(place);
+  }
+  if (place.category_key === 'transport') {
+    return transportGalleryFor(place)[0] || TRANSPORT_CATEGORY_PHOTOS[0];
+  }
   const photos = CATEGORY_PHOTOS[place.category_key] || CATEGORY_PHOTOS.attractions;
   const curated = photos[hashId(place.id) % photos.length];
   if (OFFICIAL_BUILDING_CATS.has(place.category_key)) return curated;
@@ -319,6 +386,9 @@ export function placeHeroImage(place: {
 export function placeHeroFallback(categoryKey: string, kind?: PlaceKind): string {
   if (categoryKey === 'hotels') {
     return (kind === 'resort' ? RESORT_FACADE : HOTEL_FACADE)[0];
+  }
+  if (categoryKey === 'transport') {
+    return TRANSPORT_CATEGORY_PHOTOS[0];
   }
   const photos = CATEGORY_PHOTOS[categoryKey] || CATEGORY_PHOTOS.attractions;
   return photos[0];

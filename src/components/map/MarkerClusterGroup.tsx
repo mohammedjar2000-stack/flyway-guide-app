@@ -13,8 +13,8 @@ const MarkerClusterGroup = createLayerComponent<L.MarkerClusterGroup, ClusterPro
     const instance = L.markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
-      disableClusteringAtZoom: 14,
-      maxClusterRadius: 42,
+      disableClusteringAtZoom: 15,
+      maxClusterRadius: 80,
       iconCreateFunction: makeClusterIcon,
       animate: false,
       chunkedLoading: true,

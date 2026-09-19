@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { galleryCaption, placeGallery, resolvePlaceKind } from '@/lib/placeImagery';
 import type { DirectoryListing } from '@/types';
+import PlaceSafeImage from '@/components/map/PlaceSafeImage';
 
 interface PlaceImageGalleryProps {
   place: DirectoryListing;
@@ -22,7 +23,7 @@ export default function PlaceImageGallery({ place, variant = 'hero', className =
     .filter((item) => !failed.has(item.i));
   const count = Math.max(usable.length, 1);
   const safeIndex = ((index % count) + count) % count;
-  const current = usable[safeIndex]?.url || photos[0] || '';
+  const current = usable[safeIndex]?.url || '';
 
   useEffect(() => {
     setIndex(0);
@@ -71,7 +72,7 @@ export default function PlaceImageGallery({ place, variant = 'hero', className =
       {current ? (
         <img
           src={current}
-          alt={`${place.name} — ${galleryCaption(usable[safeIndex]?.i ?? safeIndex, kind)}`}
+          alt={`${place.name} — ${galleryCaption(usable[safeIndex]?.i ?? safeIndex, kind, place.category_key)}`}
           className="w-full h-full object-cover pointer-events-none"
           loading={isHero ? 'eager' : 'lazy'}
           decoding="async"
@@ -87,9 +88,12 @@ export default function PlaceImageGallery({ place, variant = 'hero', className =
           }}
         />
       ) : (
-        <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-500 text-xs px-3 text-center">
-          {place.name}
-        </div>
+        <PlaceSafeImage
+          place={place}
+          className="w-full h-full object-cover pointer-events-none"
+          alt={place.name}
+          loading={isHero ? 'eager' : 'lazy'}
+        />
       )}
       {isHero && (
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent pointer-events-none" />
@@ -128,17 +132,16 @@ export default function PlaceImageGallery({ place, variant = 'hero', className =
               className={`h-1.5 rounded-full cursor-pointer transition-all ${
                 i === safeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/55 hover:bg-white/80'
               }`}
-              aria-label={galleryCaption(item.i, kind)}
+              aria-label={galleryCaption(item.i, kind, place.category_key)}
             />
           ))}
         </div>
       )}
       {isHero && (
         <p className="absolute top-3 left-3 z-10 max-w-[70%] text-[11px] font-semibold text-white bg-black/45 rounded-full px-2.5 py-0.5 pointer-events-none">
-          {galleryCaption(usable[safeIndex]?.i ?? safeIndex, kind)}
+          {galleryCaption(usable[safeIndex]?.i ?? safeIndex, kind, place.category_key)}
         </p>
       )}
-      <span className="sr-only">{kind}</span>
     </div>
   );
 }

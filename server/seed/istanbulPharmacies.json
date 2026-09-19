@@ -1,0 +1,722 @@
+[
+  {
+    "sourceId": "osm-n-4449648989",
+    "name": "Ataman Eczanesi",
+    "address": "Ebussuud Caddesi, Hocapaşa, Fatih",
+    "city": "Istanbul",
+    "lat": 41.0124997,
+    "lng": 28.9770432
+  },
+  {
+    "sourceId": "osm-n-14148098401",
+    "name": "Çemberlitaş Merkez Eczanesi",
+    "address": "Taşdirek Çeşmesi Sokağı, Binbirdirek, Fatih",
+    "city": "Istanbul",
+    "lat": 41.0083237,
+    "lng": 28.9710197
+  },
+  {
+    "sourceId": "osm-n-5108837425",
+    "name": "Pınar Ünsoy Eczanesi",
+    "address": "Ankara Caddesi, Hobyar, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0138106,
+    "lng": 28.9751064
+  },
+  {
+    "sourceId": "osm-n-5110347258",
+    "name": "Eczane Sirkeci",
+    "address": "Ankara Caddesi, Hocapaşa, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0151309,
+    "lng": 28.9756837
+  },
+  {
+    "sourceId": "osm-n-5244796198",
+    "name": "Zafer Eczanesi",
+    "address": "Sabuncuhanı Sokağı, Rüstempaşa, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0151666,
+    "lng": 28.9695232
+  },
+  {
+    "sourceId": "osm-n-5244795901",
+    "name": "Hasırcılar Eczanesi",
+    "address": "Balkapanı Sokağı, Tahtakale, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0169581,
+    "lng": 28.9686576
+  },
+  {
+    "sourceId": "osm-n-4829213624",
+    "name": "Damla Eczanesi",
+    "address": "Bereketzade Camii Sokağı, Bereketzade, Beyoğlu",
+    "city": "Istanbul",
+    "lat": 41.0250719,
+    "lng": 28.9739446
+  },
+  {
+    "sourceId": "osm-n-4829213628",
+    "name": "Kabataş Eczanesi",
+    "address": "Mebusan Yokuşu, Ömer Avni, Beyoğlu",
+    "city": "Istanbul",
+    "lat": 41.03212,
+    "lng": 28.9885182
+  },
+  {
+    "sourceId": "osm-n-4439348491",
+    "name": "Yeşilçam Eczanesi",
+    "address": "Alyon Geçidi Sokağı, Kuloğlu, Beyoğlu",
+    "city": "Istanbul",
+    "lat": 41.0342343,
+    "lng": 28.9803946
+  },
+  {
+    "sourceId": "osm-n-4828993422",
+    "name": "Sönmez Eczanesi",
+    "address": "Yokuş Çeşmesi Sokağı, Cerrahpaşa, Fatih",
+    "city": "Istanbul",
+    "lat": 41.0048587,
+    "lng": 28.9434968
+  },
+  {
+    "sourceId": "osm-n-672727479",
+    "name": "Çiçekçi Eczanesi",
+    "address": "Harem İskele Caddesi, Selimiye, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.01175,
+    "lng": 29.0139259
+  },
+  {
+    "sourceId": "osm-n-4959671226",
+    "name": "Handan Eczanesi",
+    "address": "Bestekar Selahattin Pınar Sokağı, Salacak, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0184957,
+    "lng": 29.0117369
+  },
+  {
+    "sourceId": "osm-n-12788102430",
+    "name": "Emir Eczanesi",
+    "address": "Doğancılar Caddesi, Aziz Mahmut Hüdayi, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0221391,
+    "lng": 29.0106111
+  },
+  {
+    "sourceId": "osm-n-4450903189",
+    "name": "Paşakapısı Eczanesi",
+    "address": "Halk Caddesi, Aziz Mahmut Hüdayi, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0199719,
+    "lng": 29.0144486
+  },
+  {
+    "sourceId": "osm-n-4938123721",
+    "name": "Şifa Eczanesi",
+    "address": "Turan Caddesi, Bülbül, Beyoğlu",
+    "city": "Istanbul",
+    "lat": 41.0378314,
+    "lng": 28.9823886
+  },
+  {
+    "sourceId": "osm-n-4829219222",
+    "name": "Derman Eczanesi",
+    "address": "Beytülmalcı Sokağı, Ömer Avni, Beyoğlu",
+    "city": "Istanbul",
+    "lat": 41.0366572,
+    "lng": 28.990615
+  },
+  {
+    "sourceId": "osm-n-4829213729",
+    "name": "Günay Eczanesi",
+    "address": "Prof. Dr. Tarık Zafer Tunaya Sokağı, Ömer Avni, Beyoğlu",
+    "city": "Istanbul",
+    "lat": 41.0366938,
+    "lng": 28.9912844
+  },
+  {
+    "sourceId": "osm-n-4959663523",
+    "name": "Ülkü Eczanesi",
+    "address": "Türbe Kapısı Sokağı, Aziz Mahmut Hüdayi, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0212036,
+    "lng": 29.0156904
+  },
+  {
+    "sourceId": "osm-n-4959663522",
+    "name": "Süer Eczanesi",
+    "address": "Türbe Kapısı Sokağı, Aziz Mahmut Hüdayi, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0217485,
+    "lng": 29.0153945
+  },
+  {
+    "sourceId": "osm-n-12844272743",
+    "name": "Yeni Mimar Sinan Eczanesi",
+    "address": "Gündoğdu Caddesi, Ahmediye, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0213725,
+    "lng": 29.0164009
+  },
+  {
+    "sourceId": "osm-n-7996850413",
+    "name": "Mimar Sinan Eczanesi",
+    "address": "Eski Mahkeme Sokağı, Aziz Mahmut Hüdayi, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0231445,
+    "lng": 29.0154333
+  },
+  {
+    "sourceId": "osm-n-4829218925",
+    "name": "Kutlay Eczanesi",
+    "address": "Serdar Ömerpaşa Caddesi, Bülbül, Beyoğlu",
+    "city": "Istanbul",
+    "lat": 41.0400273,
+    "lng": 28.9789142
+  },
+  {
+    "sourceId": "osm-n-11191249482",
+    "name": "Işılay Eczanesi",
+    "address": "Doktor Fahri Atabey Caddesi, Mimar Sinan, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0187368,
+    "lng": 29.0202763
+  },
+  {
+    "sourceId": "osm-n-4828993464",
+    "name": "Fazilet Eczanesi",
+    "address": "Vodina Caddesi, Balat, Fatih",
+    "city": "Istanbul",
+    "lat": 41.0322757,
+    "lng": 28.9477924
+  },
+  {
+    "sourceId": "osm-n-14156862601",
+    "name": "Reyhan Eczanesi",
+    "address": "Selami Ali Efendi Caddesi, Mimar Sinan, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.024583,
+    "lng": 29.017162
+  },
+  {
+    "sourceId": "osm-n-12843965220",
+    "name": "Kız Kulesi Eczanesi",
+    "address": "Selmani Pak Caddesi, Sultantepe, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0255701,
+    "lng": 29.0169013
+  },
+  {
+    "sourceId": "osm-n-4828993463",
+    "name": "Balat Merkez Eczanesi",
+    "address": "Lavanta Sokağı, Ayvansaray, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0335687,
+    "lng": 28.9463415
+  },
+  {
+    "sourceId": "osm-n-4945726921",
+    "name": "Altuğ Eczanesi",
+    "address": "Turgut Özal Millet Caddesi, Şehremini, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0152236,
+    "lng": 28.9328228
+  },
+  {
+    "sourceId": "osm-n-3499102206",
+    "name": "Şerin Eczanesi",
+    "address": "Turgut Özal Millet Caddesi, Şehremini, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0153183,
+    "lng": 28.9326292
+  },
+  {
+    "sourceId": "osm-n-899144651",
+    "name": "Olgun Eczanesi",
+    "address": "Başvekil Caddesi, Şehremini, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.013341,
+    "lng": 28.9321518
+  },
+  {
+    "sourceId": "osm-n-4486289893",
+    "name": "Sezgin Eczanesi",
+    "address": "Eski Toptaşı Sokağı, Valide-i Atik, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0170948,
+    "lng": 29.0243653
+  },
+  {
+    "sourceId": "osm-n-4828993476",
+    "name": "Zafer Eczanesi",
+    "address": "Mecit Bey Sokak, Seyyid Ömer, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0092787,
+    "lng": 28.9306049
+  },
+  {
+    "sourceId": "osm-n-5115937973",
+    "name": "Benin Eczanesi",
+    "address": "Alyanak Sokak, Seyyid Ömer, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0091045,
+    "lng": 28.9289995
+  },
+  {
+    "sourceId": "osm-n-5112723906",
+    "name": "Özsoy Eczanesi",
+    "address": "Hacı Kadın Caddesi, Koca Mustafapaşa, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0006446,
+    "lng": 28.9293275
+  },
+  {
+    "sourceId": "osm-n-4804473921",
+    "name": "Uğurcan Eczanesi",
+    "address": "Koca Mustafa Paşa Caddesi, Sümbül Efendi, Fatih",
+    "city": "Istanbul",
+    "lat": 41.0040202,
+    "lng": 28.9283823
+  },
+  {
+    "sourceId": "osm-n-4827750337",
+    "name": "Çağla Eczanesi",
+    "address": "Feridun Kılıç Sokağı, Koca Mustafapaşa, Fatih",
+    "city": "Istanbul",
+    "lat": 40.9978958,
+    "lng": 28.929871
+  },
+  {
+    "sourceId": "osm-n-4442754990",
+    "name": "Seçil Eczanesi",
+    "address": "Sefa Bostanı Sokağı, Topkapı, Fatih",
+    "city": "Istanbul",
+    "lat": 41.0194717,
+    "lng": 28.9301739
+  },
+  {
+    "sourceId": "osm-n-5115939298",
+    "name": "Aksa Eczanesi",
+    "address": "Lalezar Cami Sokak, Seyyid Ömer, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0083789,
+    "lng": 28.9269959
+  },
+  {
+    "sourceId": "osm-n-5113473753",
+    "name": "Hakan Eczanesi",
+    "address": "Elif Lamet Sokak, Şehremini, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0131423,
+    "lng": 28.9260479
+  },
+  {
+    "sourceId": "osm-n-6190252145",
+    "name": "Can Eczanesi",
+    "address": "Gazi Caddesi, Selami Ali, istanbul",
+    "city": "Istanbul",
+    "lat": 41.0235127,
+    "lng": 29.0281331
+  },
+  {
+    "sourceId": "osm-n-4960996422",
+    "name": "Nilgün Eczanesi",
+    "address": "Allame Caddesi, Valide-i Atik, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0204489,
+    "lng": 29.0316751
+  },
+  {
+    "sourceId": "osm-n-5215512024",
+    "name": "Karadeniz Eczanesi",
+    "address": "Ihlamurdere Caddesi, Türkali, Beşiktaş",
+    "city": "Istanbul",
+    "lat": 41.0464728,
+    "lng": 29.0021734
+  },
+  {
+    "sourceId": "osm-n-5215501324",
+    "name": "Emek Eczanesi",
+    "address": "Ihlamurdere Caddesi, Türkali, Beşiktaş",
+    "city": "Istanbul",
+    "lat": 41.047251,
+    "lng": 29.0024013
+  },
+  {
+    "sourceId": "osm-n-4836215630",
+    "name": "Gül Eczanesi",
+    "address": "Baruthane Caddesi, Feriköy, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0518418,
+    "lng": 28.981951
+  },
+  {
+    "sourceId": "osm-n-4831449947",
+    "name": "Fazlıoğlu Eczanesi",
+    "address": "Şemibey Sokağı, Acıbadem, Kadıköy",
+    "city": "Istanbul",
+    "lat": 40.9951462,
+    "lng": 29.0337608
+  },
+  {
+    "sourceId": "osm-n-4836215624",
+    "name": "Sena Cansever Eczanesi",
+    "address": "Bostancı Veli Sokağı, Cihannüma, Beşiktaş",
+    "city": "Istanbul",
+    "lat": 41.0463422,
+    "lng": 29.0071785
+  },
+  {
+    "sourceId": "osm-n-7652694333",
+    "name": "Akın Eczanesi",
+    "address": "Söğütlüçeşme Caddesi, Osmanağa, Kadıköy",
+    "city": "Istanbul",
+    "lat": 40.9919127,
+    "lng": 29.0326318
+  },
+  {
+    "sourceId": "osm-n-5215512027",
+    "name": "Deva Eczanesi",
+    "address": "Deryadil Sokağı, Beşiktaş",
+    "city": "Istanbul",
+    "lat": 41.0490988,
+    "lng": 29.0004319
+  },
+  {
+    "sourceId": "osm-n-4836199445",
+    "name": "Selen Eczanesi",
+    "address": "Bozkurt Caddesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.052852,
+    "lng": 28.9835772
+  },
+  {
+    "sourceId": "osm-n-1906968105",
+    "name": "Cevher Eczanesi",
+    "address": "Veysi Paşa Sokağı, Barbaros, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0147933,
+    "lng": 29.0379158
+  },
+  {
+    "sourceId": "osm-n-4839831797",
+    "name": "Feriköy Deva Eczanesi",
+    "address": "Darülaceze Yolu Caddesi, Paşa Mahallesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0538806,
+    "lng": 28.9745743
+  },
+  {
+    "sourceId": "osm-n-4456458992",
+    "name": "Altın Eczanesi",
+    "address": "Valikonağı Caddesi, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0527177,
+    "lng": 28.9928141
+  },
+  {
+    "sourceId": "osm-n-4839831796",
+    "name": "Erçin Eczanesi",
+    "address": "Darülaceze Yolu Caddesi, Paşa Mahallesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0542113,
+    "lng": 28.9744548
+  },
+  {
+    "sourceId": "osm-n-4845886221",
+    "name": "İcadiye Eczanesi",
+    "address": "Cemil Meriç Sokağı, İcadiye, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0270055,
+    "lng": 29.0352025
+  },
+  {
+    "sourceId": "osm-n-4450611193",
+    "name": "Durusüt Eczanesi",
+    "address": "Valikonağı Caddesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0545294,
+    "lng": 28.9950882
+  },
+  {
+    "sourceId": "osm-n-14156870014",
+    "name": "Esat Eczanesi",
+    "address": "Tekin Sokağı, Acıbadem, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.00809,
+    "lng": 29.042922
+  },
+  {
+    "sourceId": "osm-n-4836199432",
+    "name": "Erki Eczanesi",
+    "address": "Kevser Sokağı, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0559752,
+    "lng": 28.9910082
+  },
+  {
+    "sourceId": "osm-n-4839831773",
+    "name": "Kahvecioğlu Yıldız Eczanesi",
+    "address": "Yenidoğan Sokak, Beşiktaş",
+    "city": "Istanbul",
+    "lat": 41.0516222,
+    "lng": 29.007909
+  },
+  {
+    "sourceId": "osm-n-14148500303",
+    "name": "Ocak Eczanesi",
+    "address": "80/2 Sokak, Telsiz, Zeytinburnu",
+    "city": "Istanbul",
+    "lat": 40.9974843,
+    "lng": 28.915109
+  },
+  {
+    "sourceId": "osm-n-3266716493",
+    "name": "Aqua Eczanesi",
+    "address": "Hakkı Yeten Caddesi, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.055258,
+    "lng": 28.9987093
+  },
+  {
+    "sourceId": "osm-n-4450611291",
+    "name": "Tarhan Eczanesi",
+    "address": "Etfal Hastanesi Sokağı, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0580183,
+    "lng": 28.9879985
+  },
+  {
+    "sourceId": "osm-n-4843888631",
+    "name": "Murat Eczanesi",
+    "address": "Oymacı Sokağı, Altunizade, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0248407,
+    "lng": 29.042204
+  },
+  {
+    "sourceId": "osm-n-4960996323",
+    "name": "Nar Eczanesi",
+    "address": "Okul Çıkmazı, Altunizade, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0173369,
+    "lng": 29.0476922
+  },
+  {
+    "sourceId": "osm-n-4804473221",
+    "name": "Murat Eczanesi",
+    "address": "G-13 Sk, Seyitnizam, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0060512,
+    "lng": 28.9071834
+  },
+  {
+    "sourceId": "osm-n-5172355328",
+    "name": "Gülseren Eczanesi",
+    "address": "Abide-i Hürriyet Caddesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0627973,
+    "lng": 28.9877799
+  },
+  {
+    "sourceId": "osm-n-5172355327",
+    "name": "Kerem Eczanesi",
+    "address": "Abide-i Hürriyet Caddesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.063012,
+    "lng": 28.9878065
+  },
+  {
+    "sourceId": "osm-n-5172374123",
+    "name": "Üstay Eczanesi",
+    "address": "Abide-i Hürriyet Caddesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0637911,
+    "lng": 28.9874948
+  },
+  {
+    "sourceId": "osm-n-4477650689",
+    "name": "Aslan Eczanesi",
+    "address": "Barbaros Bulvarı, Balmumcu, Beşiktaş",
+    "city": "Istanbul",
+    "lat": 41.0589478,
+    "lng": 29.0108036
+  },
+  {
+    "sourceId": "osm-n-5667638765",
+    "name": "Uğur Eczanesi",
+    "address": "Rauf Denktaş Caddesi, Beştelsiz, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0006254,
+    "lng": 28.9043383
+  },
+  {
+    "sourceId": "osm-n-14173460501",
+    "name": "Sezer Eczanesi",
+    "address": "18. Sk, Seyitnizam, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0087347,
+    "lng": 28.9030734
+  },
+  {
+    "sourceId": "osm-n-3266709684",
+    "name": "Aylin Eczanesi",
+    "address": "Cemil Aslan Güder Sokağı, Gayrettepe, İstanbul",
+    "city": "Istanbul",
+    "lat": 41.0635725,
+    "lng": 29.0050316
+  },
+  {
+    "sourceId": "osm-n-4827747425",
+    "name": "Yunus Emre Eczanesi",
+    "address": "Reşadiye Caddesi, Rami Cuma, Eyüpsultan",
+    "city": "Istanbul",
+    "lat": 41.0489173,
+    "lng": 28.9205017
+  },
+  {
+    "sourceId": "osm-n-12200346128",
+    "name": "Şişli Altuğ Eczanesi",
+    "address": "Yeni Yol Caddesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0682,
+    "lng": 28.9844355
+  },
+  {
+    "sourceId": "osm-n-4804473222",
+    "name": "Yavuz Eczanesi",
+    "address": "75/3. Sokak, Veliefendi, Zeytinburnu",
+    "city": "Istanbul",
+    "lat": 40.9966567,
+    "lng": 28.9001111
+  },
+  {
+    "sourceId": "osm-n-4837021732",
+    "name": "Seren Eczanesi",
+    "address": "28 Nisan Caddesi, Gürsel, Kâğıthane",
+    "city": "Istanbul",
+    "lat": 41.0683451,
+    "lng": 28.9740664
+  },
+  {
+    "sourceId": "osm-n-5667661206",
+    "name": "İstasyon Eczanesi",
+    "address": "58. Bulvar Caddesi, Yenidoğan, İstanbul",
+    "city": "Istanbul",
+    "lat": 40.9858421,
+    "lng": 28.9041743
+  },
+  {
+    "sourceId": "osm-n-9481152392",
+    "name": "Venüs Eczanesi",
+    "address": "Bağdat Caddesi, Fenerbahçe, Kadıköy",
+    "city": "Istanbul",
+    "lat": 40.9770874,
+    "lng": 29.0475654
+  },
+  {
+    "sourceId": "osm-n-4450054890",
+    "name": "Dilek Sağlık Eczanesi",
+    "address": "60.Yıl Caddesi, Terazidere, Bayrampaşa",
+    "city": "Istanbul",
+    "lat": 41.0324933,
+    "lng": 28.903601
+  },
+  {
+    "sourceId": "osm-n-6741982664",
+    "name": "Fikirtepe Ihlamur Eczanesi",
+    "address": "Volkan Sokağı, Dumlupınar, Kadıköy",
+    "city": "Istanbul",
+    "lat": 40.9904158,
+    "lng": 29.0563405
+  },
+  {
+    "sourceId": "osm-n-4839814953",
+    "name": "Neşe Eczanesi",
+    "address": "Yıldız Posta Caddesi, Gayrettepe, Beşiktaş",
+    "city": "Istanbul",
+    "lat": 41.0656553,
+    "lng": 29.007994
+  },
+  {
+    "sourceId": "osm-n-4839831775",
+    "name": "Koçalp Eczanesi",
+    "address": "Villa Caddesi, Esentepe, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0655066,
+    "lng": 29.0092532
+  },
+  {
+    "sourceId": "osm-n-4831470927",
+    "name": "Yelken Eczanesi",
+    "address": "Dr. Faruk Ayanoğlu Caddesi, Fenerbahçe, Kadıköy",
+    "city": "Istanbul",
+    "lat": 40.970812,
+    "lng": 29.0442227
+  },
+  {
+    "sourceId": "osm-n-4839814954",
+    "name": "Özcan Eczanesi",
+    "address": "Şehit Ertuğrul Kabataş Caddesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.069523,
+    "lng": 29.0002244
+  },
+  {
+    "sourceId": "osm-n-4843894122",
+    "name": "Ilgar Eczanesi",
+    "address": "Mehmet Akif Ersoy Caddesi, Beylerbeyi, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0394901,
+    "lng": 29.051764
+  },
+  {
+    "sourceId": "osm-n-4843888629",
+    "name": "Çamlıca Meydan Eczanesi",
+    "address": "Kısıklı Caddesi, Küçükçamlıca, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0218224,
+    "lng": 29.0621572
+  },
+  {
+    "sourceId": "osm-n-4839813179",
+    "name": "Servet Eczanesi",
+    "address": "Şehit Ertuğrul Kabataş Caddesi, Şişli",
+    "city": "Istanbul",
+    "lat": 41.0714034,
+    "lng": 28.9986162
+  },
+  {
+    "sourceId": "osm-n-4839023822",
+    "name": "Sefa Eczanesi",
+    "address": "30. Sokak, Namık Kemal, Esenler",
+    "city": "Istanbul",
+    "lat": 41.0299477,
+    "lng": 28.8966382
+  },
+  {
+    "sourceId": "osm-n-4837069721",
+    "name": "Eğitim Eczanesi",
+    "address": "Vatan Caddesi, Kâğıthane",
+    "city": "Istanbul",
+    "lat": 41.073836,
+    "lng": 28.9809601
+  },
+  {
+    "sourceId": "osm-n-4440036459",
+    "name": "Yıldıztabya Eczanesi",
+    "address": "Cevher Sokağı, Yıldıztabya, Gaziosmanpaşa",
+    "city": "Istanbul",
+    "lat": 41.0655587,
+    "lng": 28.9330211
+  },
+  {
+    "sourceId": "osm-n-4843894222",
+    "name": "Küplüce Eczanesi",
+    "address": "Okulyolu Sokağı, Küplüce, Üsküdar",
+    "city": "Istanbul",
+    "lat": 41.0323417,
+    "lng": 29.0611303
+  }
+]

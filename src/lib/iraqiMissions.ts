@@ -168,15 +168,16 @@ export function missionToListing(m: IraqiMission): DirectoryListing {
     tags: [m.kind === 'embassy' ? 'سفارة' : m.kind === 'consulate' ? 'قنصلية' : 'بعثة', 'خط طوارئ'],
     proximity_note: `${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}`,
     phone: m.phone,
-    hours: 'راجع موقع وزارة الخارجية للمواعيد',
+    hours: m.id === 'tr-istanbul' ? '09:00 - 15:00' : 'راجع موقع وزارة الخارجية للمواعيد',
     is_featured: true,
-    sort_order: 0,
+    sort_order: m.id === 'tr-istanbul' ? -100 : 0,
     lat: m.lat,
     lng: m.lng,
     metro_station_name: '',
     metro_walk_minutes: 0,
     review_count: 0,
     created_at: '',
+    website: m.id === 'tr-istanbul' ? 'https://mofa.gov.iq' : undefined,
     nav_query: `${m.lat},${m.lng}`,
   };
 }
@@ -185,7 +186,8 @@ const BY_ID = new Map(IRAQI_MISSIONS.map((m) => [m.id, m]));
 
 export function getMissionById(id?: string | null) {
   if (!id) return undefined;
-  return BY_ID.get(id);
+  const raw = id.startsWith('mission-') ? id.slice('mission-'.length) : id;
+  return BY_ID.get(raw) || BY_ID.get(id);
 }
 
 export function missionsForCountry(country: string) {

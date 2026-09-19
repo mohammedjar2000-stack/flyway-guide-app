@@ -1,25 +1,69 @@
-import { memo, useState, type MouseEvent } from 'react';
-import { Clock, Navigation, Star } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type UIEvent } from 'react';
+import { Clock, Navigation, Phone, Star } from 'lucide-react';
 import type { DirectoryListing } from '@/types';
 import type { PreviewSource } from '@/hooks/usePlacePreview';
 import { parseHours } from '@/lib/hours';
-import { CATEGORY_COLORS, CATEGORY_EMOJI } from '@/lib/mapIcons';
-import { placeGallery, placeHeroFallback, placeHeroImage, placeKindLabel, resolvePlaceKind } from '@/lib/placeImagery';
+import PlaceSafeImage from '@/components/map/PlaceSafeImage';
+import { financialKind, financialLabel } from '@/lib/financialKind';
+import { CATEGORY_COLORS, CATEGORY_EMOJI, isMallListing } from '@/lib/mapIcons';
+import { placeGallery, placeHeroImage, placeKindLabel, resolvePlaceKind } from '@/lib/placeImagery';
 import PlaceImageGallery from '@/components/map/PlaceImageGallery';
 
 interface PlacesListProps {
   items: DirectoryListing[];
   loading?: boolean;
   activeId?: string | null;
+  hoveredId?: string | null;
+  scrollToId?: string | null;
   onSelect: (item: DirectoryListing) => void;
   formatDistance?: (item: DirectoryListing) => string | null;
   onPreview?: (place: DirectoryListing, x: number, y: number, source: PreviewSource) => void;
   onPreviewEnd?: () => void;
 }
 
-const LIST_CAP = 160;
-
 function listingVisual(item: DirectoryListing) {
+  if (item.category_key === 'markets') {
+    const mall = isMallListing(item);
+    return {
+      kind: null,
+      color: CATEGORY_COLORS[mall ? 'mall' : 'market'] || '#8b5cf6',
+      emoji: mall ? '🏬' : '🛒',
+      label: mall ? 'مركز تسوق' : item.category_label,
+    };
+  }
+  if (item.category_key === 'telecom') {
+    return {
+      kind: null,
+      color: CATEGORY_COLORS.telecom || '#14b8a6',
+      emoji: '📶',
+      label: 'اتصالات و eSIM',
+    };
+  }
+  if (item.category_key === 'exchange') {
+    const kind = financialKind(item);
+    return {
+      kind: null,
+      color: CATEGORY_COLORS[kind] || CATEGORY_COLORS.exchange,
+      emoji: CATEGORY_EMOJI[kind] || '💱',
+      label: financialLabel(kind),
+    };
+  }
+  if (item.category_key === 'fuel') {
+    return {
+      kind: null,
+      color: CATEGORY_COLORS.fuel,
+      emoji: '⛽',
+      label: item.category_label || 'وقود',
+    };
+  }
+  if (item.category_key === 'bakeries') {
+    return {
+      kind: null,
+      color: CATEGORY_COLORS.bakeries,
+      emoji: '🥐',
+      label: item.category_label || 'مخابز وسوبر ماركت',
+    };
+  }
   const kind = (item.category_key === 'hotels' || item.category_key === 'restaurants')
     ? resolvePlaceKind(item)
     : null;
@@ -35,6 +79,7 @@ function listingVisual(item: DirectoryListing) {
 const PlaceListRow = memo(function PlaceListRow({
   item,
   active,
+  hovered,
   dist,
   onSelect,
   onPreview,
@@ -42,6 +87,7 @@ const PlaceListRow = memo(function PlaceListRow({
 }: {
   item: DirectoryListing;
   active: boolean;
+  hovered: boolean;
   dist: string | null;
   onSelect: (item: DirectoryListing) => void;
   onPreview?: PlacesListProps['onPreview'];
@@ -49,18 +95,20 @@ const PlaceListRow = memo(function PlaceListRow({
 }) {
   const status = parseHours(item.hours);
   const visual = listingVisual(item);
-  const isStay = item.category_key === 'hotels' || item.category_key === 'restaurants';
-  const [thumb, setThumb] = useState(() => placeGallery(item)[0] || item.image || placeHeroImage(item));
+  const isStay = item.category_key === 'hotels' || item.category_key === 'restaurants' || item.category_key === 'transport';
+  const thumb = placeGallery(item)[0] || item.image || placeHeroImage(item);
 
   const openPreview = (e: MouseEvent<HTMLElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     onPreview?.(item, r.left, r.top + r.height / 2, 'list');
   };
 
-  const cardClass = `w-full text-right bg-white rounded-2xl border cursor-pointer transition-all duration-150 overflow-hidden ${
+  const cardClass = `place-list-card w-full text-right bg-white rounded-2xl border cursor-pointer transition-all duration-200 overflow-hidden ${
     active
-      ? 'border-[#1a73e8] ring-2 ring-[#1a73e8]/15 shadow-md'
-      : 'border-slate-200/90 shadow-sm hover:border-slate-300 hover:shadow-md'
+      ? 'border-[#1a73e8] ring-2 ring-[#1a73e8]/20 shadow-lg -translate-y-0.5'
+      : hovered
+        ? 'border-brand-400 ring-2 ring-brand-400/25 shadow-lg -translate-y-0.5 bg-lime-50/40'
+        : 'border-slate-200/90 shadow-sm hover:border-brand-400 hover:shadow-lg hover:-translate-y-0.5'
   }`;
 
   const meta = (
@@ -98,6 +146,12 @@ const PlaceListRow = memo(function PlaceListRow({
             <span className="truncate">{item.hours}</span>
           </span>
         )}
+        {item.phone && (
+          <span className="flex items-center gap-1 text-slate-500 truncate" dir="ltr">
+            <Phone className="w-3 h-3 shrink-0" />
+            <span className="truncate">{item.phone}</span>
+          </span>
+        )}
       </div>
     </>
   );
@@ -105,9 +159,19 @@ const PlaceListRow = memo(function PlaceListRow({
   if (isStay) {
     return (
       <div
+        data-place-id={item.id}
         className={cardClass}
         onMouseEnter={openPreview}
         onMouseLeave={() => onPreviewEnd?.()}
+        onClick={() => onSelect(item)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect(item);
+          }
+        }}
+        role="button"
+        tabIndex={0}
       >
         <div className="relative h-[132px]">
           <PlaceImageGallery place={item} variant="card" className="h-full w-full" />
@@ -119,7 +183,7 @@ const PlaceListRow = memo(function PlaceListRow({
             {visual.label}
           </span>
         </div>
-        <button type="button" onClick={() => onSelect(item)} className="w-full p-2.5 text-right cursor-pointer">
+        <button type="button" className="w-full p-2.5 text-right cursor-pointer pointer-events-none">
           {meta}
         </button>
       </div>
@@ -129,6 +193,7 @@ const PlaceListRow = memo(function PlaceListRow({
   return (
     <button
       type="button"
+      data-place-id={item.id}
       onClick={() => onSelect(item)}
       onMouseEnter={openPreview}
       onMouseLeave={() => onPreviewEnd?.()}
@@ -136,20 +201,11 @@ const PlaceListRow = memo(function PlaceListRow({
     >
       <div className="flex items-start gap-3">
         <div className="relative w-[72px] h-[72px] rounded-xl overflow-hidden shrink-0 bg-slate-100">
-          <img
-            src={thumb}
-            alt=""
+          <PlaceSafeImage
+            place={item}
+            prefer={thumb}
             className="w-full h-full object-cover"
-            loading="lazy"
-            decoding="async"
-            onError={() => {
-              const fallback = placeHeroImage(item);
-              if (thumb !== fallback) {
-                setThumb(fallback);
-                return;
-              }
-              setThumb(placeHeroFallback(item.category_key));
-            }}
+            alt=""
           />
           <span
             className="absolute bottom-1 right-1 w-6 h-6 rounded-full text-[12px] flex items-center justify-center border border-white shadow-sm"
@@ -167,15 +223,71 @@ const PlaceListRow = memo(function PlaceListRow({
   );
 });
 
+function rowHeightFor(item: DirectoryListing) {
+  const gap = 8;
+  if (item.category_key === 'hotels' || item.category_key === 'restaurants' || item.category_key === 'transport') {
+    return 196 + gap;
+  }
+  return 122 + gap;
+}
+
 function PlacesList({
   items,
   loading,
   activeId,
+  hoveredId,
+  scrollToId,
   onSelect,
   formatDistance,
   onPreview,
   onPreviewEnd,
 }: PlacesListProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState({ top: 0, height: 560 });
+
+  const offsets = useMemo(() => {
+    const next = new Array<number>(items.length + 1);
+    next[0] = 0;
+    for (let i = 0; i < items.length; i++) {
+      next[i + 1] = next[i] + rowHeightFor(items[i]);
+    }
+    return next;
+  }, [items]);
+  const totalHeight = offsets[items.length] || 0;
+
+  const onScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const node = event.currentTarget;
+    setViewport((prev) => {
+      if (Math.abs(prev.top - node.scrollTop) < 24 && prev.height === node.clientHeight) return prev;
+      return { top: node.scrollTop, height: node.clientHeight };
+    });
+  }, []);
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+    const sync = () => setViewport((prev) => (
+      prev.height === node.clientHeight && prev.top === node.scrollTop
+        ? prev
+        : { top: node.scrollTop, height: node.clientHeight }
+    ));
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [items.length]);
+
+  useEffect(() => {
+    if (!scrollToId) return;
+    const index = items.findIndex((item) => item.id === scrollToId);
+    const node = rootRef.current;
+    if (index < 0 || !node) return;
+    const top = offsets[index];
+    const bottom = offsets[index + 1];
+    if (top < node.scrollTop) node.scrollTop = top;
+    else if (bottom > node.scrollTop + node.clientHeight) node.scrollTop = Math.max(0, bottom - node.clientHeight);
+  }, [scrollToId, items, offsets]);
+
   if (loading && items.length === 0) {
     return (
       <div className="space-y-2">
@@ -189,32 +301,40 @@ function PlacesList({
   if (items.length === 0) {
     return (
       <div className="text-center py-10 text-slate-500 text-sm">
-        لا توجد نتائج في هذه المنطقة
+        لا توجد نتائج في هذه الفئة
       </div>
     );
   }
 
-  const visible = items.slice(0, LIST_CAP);
-  const extra = items.length - visible.length;
+  const overscan = 8;
+  let start = 0;
+  let end = items.length;
+  while (start < items.length && offsets[start + 1] < viewport.top) start += 1;
+  start = Math.max(0, start - overscan);
+  while (end > start && offsets[end - 1] > viewport.top + viewport.height) end -= 1;
+  end = Math.min(items.length, end + overscan);
+  const padTop = offsets[start] || 0;
+  const padBottom = Math.max(0, totalHeight - (offsets[end] || totalHeight));
 
   return (
-    <div className="space-y-2">
-      {visible.map((item) => (
-        <PlaceListRow
-          key={item.id}
-          item={item}
-          active={activeId === item.id}
-          dist={formatDistance?.(item) ?? null}
-          onSelect={onSelect}
-          onPreview={onPreview}
-          onPreviewEnd={onPreviewEnd}
-        />
-      ))}
-      {extra > 0 && (
-        <p className="text-center text-[11px] text-slate-400 pt-1 pb-2">
-          و {extra} مكاناً إضافياً ظاهر على الخريطة
-        </p>
-      )}
+    <div ref={rootRef} className="h-full overflow-y-auto overscroll-contain" onScroll={onScroll}>
+      <div style={{ height: padTop }} />
+      <div>
+        {items.slice(start, end).map((item) => (
+          <div key={item.id} className="pb-2">
+            <PlaceListRow
+              item={item}
+              active={activeId === item.id}
+              hovered={hoveredId === item.id && activeId !== item.id}
+              dist={formatDistance?.(item) ?? null}
+              onSelect={onSelect}
+              onPreview={onPreview}
+              onPreviewEnd={onPreviewEnd}
+            />
+          </div>
+        ))}
+      </div>
+      <div style={{ height: padBottom }} />
     </div>
   );
 }

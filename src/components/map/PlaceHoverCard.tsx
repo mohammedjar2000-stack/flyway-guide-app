@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Star } from 'lucide-react';
 import type { DirectoryListing } from '@/types';
 import { parseHours } from '@/lib/hours';
+import PlaceSafeImage from '@/components/map/PlaceSafeImage';
 import { CATEGORY_COLORS, CATEGORY_EMOJI } from '@/lib/mapIcons';
 import { placeGallery, resolvePlaceKind } from '@/lib/placeImagery';
 import type { PreviewSource } from '@/hooks/usePlacePreview';
@@ -47,14 +48,11 @@ export default function PlaceHoverCard({ place, x, y, source }: PlaceHoverCardPr
       dir="rtl"
     >
       <div className="relative h-[96px] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-        <img
-          src={thumb}
-          alt=""
+        <PlaceSafeImage
+          place={place}
+          prefer={thumb}
           className="h-full w-full object-cover"
-          onError={(e) => {
-            const next = photos.find((url) => url && url !== e.currentTarget.src);
-            if (next) e.currentTarget.src = next;
-          }}
+          alt=""
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
         {photos.length > 1 && (
