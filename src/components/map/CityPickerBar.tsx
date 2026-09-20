@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Globe, Landmark, Loader2, MapPin, Search, X } from 'lucide-react';
 import {
   firstMajorCityForCountry,
@@ -68,8 +69,10 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
   const [remote, setRemote] = useState<CityOption[]>([]);
   const [remoteCountries, setRemoteCountries] = useState<Array<{ name: string; en: string; code: string }>>([]);
   const [searching, setSearching] = useState(false);
+  const [countryMenuPos, setCountryMenuPos] = useState({ top: 0, left: 0, width: 280 });
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const countryBtnRef = useRef<HTMLButtonElement>(null);
   const countryFilterRef = useRef<HTMLInputElement>(null);
 
   const country = location?.country || 'تركيا';
@@ -96,6 +99,8 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
 
   useEffect(() => {
     const onDoc = (event: MouseEvent) => {
+      const menu = document.getElementById('map-country-menu');
+      if (menu?.contains(event.target as Node)) return;
       if (!rootRef.current?.contains(event.target as Node)) {
         setOpen(false);
         setCountryMenu(false);
@@ -109,8 +114,25 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
 
   useEffect(() => {
     if (!countryMenu) return;
+    const place = () => {
+      const el = countryBtnRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setCountryMenuPos({
+        top: r.bottom + 6,
+        left: r.left,
+        width: Math.max(r.width, 260),
+      });
+    };
+    place();
     window.setTimeout(() => countryFilterRef.current?.focus(), 0);
-  }, [countryMenu]);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [countryMenu, countryFilter]);
 
   useEffect(() => {
     if (!open || !canSuggest) {
@@ -256,6 +278,7 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
     <div ref={rootRef} className="on-light relative w-full isolate text-slate-800" dir="rtl">
       <div className="flex items-center gap-2 rounded-[22px] bg-white text-slate-800 border border-slate-200 shadow-[0_10px_32px_rgba(15,23,42,0.16)] px-2 py-1.5">
         <button
+          ref={countryBtnRef}
           type="button"
           onClick={() => {
             setCountryMenu((v) => !v);
@@ -311,21 +334,26 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
         </div>
       </div>
 
-      {countryMenu && (
-        <div className="on-light absolute top-[calc(100%+6px)] right-0 z-[80] w-[min(100%,280px)] max-h-80 overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-2xl text-slate-800 dark:bg-neutral-950/95 dark:border-white/10 dark:text-white">
-          <div className="p-2 border-b border-slate-100 dark:border-white/10">
+      {countryMenu && createPortal(
+        <div
+          id="map-country-menu"
+          onMouseDown={(e) => e.stopPropagation()}
+          style={countryMenuPos}
+          className="on-light fixed z-[800] max-h-80 overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-2xl text-slate-800"
+        >
+          <div className="p-2 border-b border-slate-100">
             <input
               ref={countryFilterRef}
               value={countryFilter}
               onChange={(e) => setCountryFilter(e.target.value)}
               placeholder="ابحث عن دولة..."
-              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-[13px] font-medium text-slate-900 caret-slate-900 placeholder:text-slate-500 outline-none dark:bg-white/10 dark:border-white/10 dark:text-white dark:caret-white"
+              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-[13px] font-medium text-slate-900 caret-slate-900 placeholder:text-slate-500 outline-none"
               aria-label="بحث الدولة"
             />
           </div>
-          <div className="max-h-64 overflow-y-auto p-1.5">
+          <div className="max-h-64 overflow-y-auto overscroll-contain p-1.5 touch-pan-y">
             {filteredCountries.length === 0 && (
-              <div className="px-3 py-4 text-[13px] text-zinc-400">لا توجد دولة مطابقة</div>
+              <div className="px-3 py-4 text-[13px] font-medium text-slate-500">لا توجد دولة مطابقة</div>
             )}
             {filteredCountries.map((item) => {
               const active = item.name === country;
@@ -334,17 +362,18 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
                   key={item.code}
                   type="button"
                   onClick={() => applyCountry(item)}
-                  className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-right text-[13px] cursor-pointer ${
-                    active ? 'bg-brand-100 text-slate-900 dark:bg-brand-500/20 dark:text-white' : 'text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-white/8'
+                  className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-right text-[13px] font-medium cursor-pointer touch-manipulation ${
+                    active ? 'bg-brand-100 text-slate-900' : 'text-slate-800 hover:bg-slate-100 active:bg-slate-200'
                   }`}
                 >
                   <span>{item.name}</span>
-                  {active && <Check className="w-3.5 h-3.5 text-brand-300" />}
+                  {active && <Check className="w-3.5 h-3.5 text-brand-600" />}
                 </button>
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {open && canSuggest && (

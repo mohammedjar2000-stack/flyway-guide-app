@@ -1,7 +1,9 @@
 import {
   DISTRICT_COORDINATES,
+  firstMajorCityForCountry,
   getMajorCitiesForCountry,
   isValidCoord,
+  listCountriesFromCatalog,
   lookupCity,
   queryMatchScore,
 } from '@/lib/cityCoordinates';
@@ -238,15 +240,50 @@ export async function getDataset(): Promise<CountryData[]> {
   return _datasetPromise;
 }
 
-export async function searchCountries(query: string): Promise<CountryData[]> {
-  const dataset = await getDataset();
+export function catalogCountries(): CountryData[] {
+  return listCountriesFromCatalog().map((country) => {
+    const first = firstMajorCityForCountry(country.name);
+    return {
+      name: country.name,
+      en: country.en,
+      code: country.code,
+      lat: first?.lat ?? 0,
+      lng: first?.lng ?? 0,
+      zoom: 6,
+      cities: [],
+    };
+  });
+}
+
+function mergeCountries(rows: CountryData[]): CountryData[] {
+  const seen = new Set<string>();
+  const out: CountryData[] = [];
+  for (const row of rows) {
+    if (seen.has(row.code)) continue;
+    seen.add(row.code);
+    out.push(row);
+  }
+  return out;
+}
+
+function filterCountryList(rows: CountryData[], query: string): CountryData[] {
   const q = query.trim();
-  if (!q) return dataset.filter((c) => prioritySet.has(c.code));
-  return dataset
+  if (!q) return rows;
+  return rows
     .map((c) => ({ c, score: queryMatchScore(q, c.name, c.en, c.code) }))
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score || a.c.name.localeCompare(b.c.name, 'ar'))
     .map((row) => row.c);
+}
+
+export async function searchCountries(query: string): Promise<CountryData[]> {
+  const instant = filterCountryList(catalogCountries(), query);
+  const dataset = await getDataset();
+  const q = query.trim();
+  const fromDataset = !q
+    ? dataset.filter((c) => prioritySet.has(c.code))
+    : filterCountryList(dataset, q);
+  return mergeCountries([...instant, ...fromDataset]);
 }
 
 function majorCitiesAsResults(countryName?: string, query = ''): { city: CityData; countryName: string }[] {

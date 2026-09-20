@@ -811,6 +811,8 @@ html.dark .gmaps-directions .gmaps-mode-active {
   top: 0.75rem;
   left: 4.25rem;
   right: 0.75rem;
+  overflow: visible;
+  z-index: 90;
 }
 
 .map-overlay-banners {

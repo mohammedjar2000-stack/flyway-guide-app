@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Hotel, UtensilsCrossed, Stethoscope, Pill, ShoppingBag, Camera,
   Banknote, Landmark, Car, Shield, Smartphone, Moon, Scissors, Fuel,
@@ -16,12 +17,14 @@ import {
   searchCities,
   searchDistricts,
   listMajorCities,
+  catalogCountries,
   type CountryData,
   type CityData,
   type DistrictData,
 } from '@/lib/locations';
 import {
   lookupCity,
+  queryMatchScore,
   resolveMapFocus,
   isValidCoord,
   type AppLocation,
@@ -108,6 +111,7 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const [neighborhoodSuggestions, setNeighborhoodSuggestions] = useState<{ district: DistrictData; cityName: string; countryName: string }[]>([]);
   const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
+  const [countryMenuPos, setCountryMenuPos] = useState({ top: 0, left: 0, width: 280 });
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState('');
   const [locating, setLocating] = useState(false);
@@ -136,6 +140,8 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      const countryMenu = document.getElementById('hero-country-menu');
+      if (countryMenu?.contains(e.target as Node)) return;
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setShowSuggestions(false);
         setShowCountryResults(false);
@@ -148,6 +154,27 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    setCountrySuggestions(catalogCountries());
+  }, []);
+
+  useEffect(() => {
+    if (!showCountrySuggestions) return;
+    const place = () => {
+      const el = countryRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setCountryMenuPos({ top: r.bottom + 8, left: r.left, width: Math.max(r.width, 220) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [showCountrySuggestions, countrySuggestions.length]);
 
   const trending = countries.filter((c) => c.trending).slice(0, 4);
 
@@ -177,8 +204,18 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
   }, []);
 
   const filterCountries = async (query: string) => {
+    const catalog = catalogCountries();
+    const q = query.trim();
+    const instant = !q
+      ? catalog
+      : catalog
+        .map((item) => ({ item, score: queryMatchScore(q, item.name, item.en, item.code) }))
+        .filter((row) => row.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map((row) => row.item);
+    setCountrySuggestions(instant);
     const results = await searchCountries(query);
-    setCountrySuggestions(results);
+    setCountrySuggestions(results.length ? results : instant);
   };
 
   const filterCities = async (query: string, countryName?: string) => {
@@ -487,8 +524,8 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                       setCountryQuery(e.target.value);
                       setSelectedCountry(null);
                       const q = e.target.value;
-                      filterCountries(q);
-                      setShowCountrySuggestions(q.trim().length >= 2);
+                      void filterCountries(q);
+                      setShowCountrySuggestions(true);
                       searchLocations(q, setCountryResults, 'country');
                       setShowCountryResults(q.trim().length >= 2);
                       setShowCityResults(false);
@@ -496,27 +533,44 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                       setShowSuggestions(false);
                       setShowNeighborhoodSuggestions(false);
                     }}
-                    onFocus={() => { if (countryQuery.trim().length >= 2) { filterCountries(countryQuery); setShowCountrySuggestions(true); } }}
+                    onFocus={() => {
+                      void filterCountries(countryQuery);
+                      setShowCountrySuggestions(true);
+                      setShowCityResults(false);
+                      setShowCitySuggestions(false);
+                      setShowSuggestions(false);
+                      setShowNeighborhoodSuggestions(false);
+                    }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && selectedCountry) geocodeAndNavigate(); }}
                     placeholder="ابحث عن أي دولة..."
                     className="w-full bg-slate-50 hover:bg-slate-100 rounded-xl px-4 py-3.5 text-slate-900 text-sm font-semibold outline-none border border-slate-200 focus:border-brand-400 transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
-                  {showCountrySuggestions && countrySuggestions.length > 0 && (
-                    <div className="absolute top-full mt-2 w-full bg-white rounded-2xl border border-slate-200 shadow-2xl max-h-[280px] overflow-y-auto z-[100] animate-slide-down">
-                      {countrySuggestions.map((c, i) => (
+                  {showCountrySuggestions && createPortal(
+                    <div
+                      id="hero-country-menu"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={countryMenuPos}
+                      className="fixed z-[400] bg-white rounded-2xl border border-slate-200 shadow-2xl max-h-[min(52vh,320px)] overflow-y-auto overscroll-contain"
+                    >
+                      {countrySuggestions.length === 0 && (
+                        <p className="px-4 py-3 text-sm font-medium text-slate-500 text-right">لا توجد دولة مطابقة</p>
+                      )}
+                      {countrySuggestions.map((c) => (
                         <button
-                          key={i}
+                          key={c.code}
+                          type="button"
                           onClick={() => handleLocalCountrySelect(c)}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-brand-50 transition-all cursor-pointer text-right"
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-brand-50 active:bg-brand-100 transition-all cursor-pointer text-right touch-manipulation"
                         >
                           <Globe className="w-4 h-4 text-brand-500 shrink-0" />
-                          <div className="text-right">
-                            <span className="text-slate-700 text-sm font-medium block">{c.name}</span>
-                            <span className="text-slate-400 text-xs">{c.en} • {c.cities.length} مدن</span>
+                          <div className="text-right min-w-0">
+                            <span className="text-slate-800 text-sm font-medium block truncate">{c.name}</span>
+                            <span className="text-slate-500 text-xs">{c.en}{c.cities.length ? ` • ${c.cities.length} مدن` : ''}</span>
                           </div>
                         </button>
                       ))}
-                    </div>
+                    </div>,
+                    document.body,
                   )}
                   {showCountryResults && countryResults.length > 0 && !showCountrySuggestions && (
                     <div className="absolute top-full mt-2 w-full bg-white rounded-2xl border border-slate-200 shadow-2xl max-h-[280px] overflow-y-auto z-[100] animate-slide-down">
@@ -527,7 +581,7 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-brand-50 transition-all cursor-pointer text-right"
                         >
                           <Globe className="w-4 h-4 text-brand-500 shrink-0" />
-                          <span className="text-slate-700 text-sm font-medium line-clamp-2">{r.displayName}</span>
+                          <span className="text-slate-800 text-sm font-medium line-clamp-2">{r.displayName}</span>
                         </button>
                       ))}
                     </div>
