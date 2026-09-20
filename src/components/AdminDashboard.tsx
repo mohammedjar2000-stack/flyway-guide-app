@@ -226,8 +226,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!unlocked) return;
-    if (cards.length === 0) void refreshAll();
-  }, [unlocked, cards.length, refreshAll]);
+    void refreshAll();
+  }, [unlocked, refreshAll]);
 
   const refreshOne = async (id: string) => {
     const probe = PROBE_BY_ID[id];

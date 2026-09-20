@@ -3,6 +3,11 @@ import { DATASET_CACHE_KEY } from '@/lib/datasetVersion';
 import { bootPlaceVault, getVaultCount, getVaultSnapshot } from '@/lib/placeVault';
 import { HOTEL_CACHE_KEY, fetchTurkeyHotels, turkeyHotelCacheMeta } from '@/services/hotelApi';
 import { TURKEY_HOTELS_DATA } from '@/data/turkeyHotelsData';
+import {
+  isGooglePlacesConfigured,
+  maskGooglePlacesKey,
+  pingGooglePlaces,
+} from '@/services/googlePlaces';
 
 export type ApiHealthStatus = 'connected' | 'error' | 'disconnected';
 
@@ -125,25 +130,49 @@ export async function probeGisBackend(): Promise<ApiHealthCard> {
 }
 
 export async function probeGooglePlaces(gis?: ApiHealthCard): Promise<ApiHealthCard> {
-  const configured = Boolean(
+  const gisConfigured = Boolean(
     gis?.log && typeof gis.log === 'object' && (gis.log as Record<string, unknown>).googlePlacesConfigured,
   );
+  const clientConfigured = isGooglePlacesConfigured();
+  const configured = clientConfigured || gisConfigured;
+
+  if (!configured) {
+    return {
+      id: 'google-places',
+      name: 'Google Places',
+      nameEn: 'Google Cloud Places + Maps',
+      description: 'مفتاح VITE_GOOGLE_PLACES_API_KEY من Google Cloud',
+      status: 'disconnected',
+      records: 0,
+      lastSync: null,
+      latencyMs: gis?.latencyMs ?? null,
+      detail: 'VITE_GOOGLE_PLACES_API_KEY غير مضبوط',
+      log: clipLog({ configured: false, gisStatus: gis?.status || 'unknown' }),
+    };
+  }
+
+  const ping = await pingGooglePlaces();
+  const connected = ping.ok && !ping.invalid;
   return {
     id: 'google-places',
     name: 'Google Places',
-    nameEn: 'Google Places API (server-side)',
-    description: 'مفتاح GOOGLE_PLACES_API_KEY على الخادم فقط — لا يُعرض في الواجهة',
-    status: !gis || gis.status === 'disconnected'
-      ? 'disconnected'
-      : configured ? 'connected' : 'disconnected',
-    records: 0,
-    lastSync: configured && gis?.status === 'connected' ? Date.now() : null,
-    latencyMs: gis?.latencyMs ?? null,
-    detail: configured
-      ? 'المفتاح مضبوط على الخادم'
-      : 'GOOGLE_PLACES_API_KEY غير مضبوط — لن تُجلب نتائج Google',
+    nameEn: 'Google Cloud Places + Maps',
+    description: 'مفتاح VITE_GOOGLE_PLACES_API_KEY من Google Cloud Platform',
+    status: ping.invalid ? 'error' : connected ? 'connected' : 'error',
+    records: ping.records,
+    lastSync: connected ? Date.now() : null,
+    latencyMs: ping.latencyMs,
+    detail: ping.invalid
+      ? 'المفتاح مرفوض من Google Cloud'
+      : connected
+        ? `مفتاح Google Cloud نشط (${maskGooglePlacesKey()})${ping.records ? ` · ${ping.records} نتيجة حية` : ''}`
+        : ping.status,
     log: clipLog({
-      googlePlacesConfigured: configured,
+      configured: true,
+      clientConfigured,
+      gisConfigured,
+      key: maskGooglePlacesKey(),
+      ping: ping.body,
       gisStatus: gis?.status || 'unknown',
     }),
   };

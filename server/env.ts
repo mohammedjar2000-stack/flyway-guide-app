@@ -20,7 +20,7 @@ export const env = {
   apiPort: Number(optional('API_PORT') ?? 8787),
   databaseUrl: optional('DATABASE_URL'),
   geoapifyApiKey: optional('GEOAPIFY_API_KEY'),
-  googlePlacesApiKey: optional('GOOGLE_PLACES_API_KEY'),
+  googlePlacesApiKey: optional('GOOGLE_PLACES_API_KEY') || optional('VITE_GOOGLE_PLACES_API_KEY'),
   rapidApiKey: optional('RAPIDAPI_KEY'),
 };
 
