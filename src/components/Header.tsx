@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plane, Moon, Sun, Menu, X, LayoutGrid, Compass, Shield, Star, MapPin, Navigation } from 'lucide-react';
+import { Plane, Moon, Sun, Menu, X, LayoutGrid, Compass, Shield, Star, MapPin, Navigation, Activity } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import TravelCompanion from '@/components/TravelCompanion';
 import type { PageKey } from '@/types';
@@ -73,6 +73,18 @@ export default function Header({ currentPage, onNavigate, currentCountry, onOpen
                 }}
               />
             </div>
+            <button
+              onClick={() => onNavigate('admin')}
+              className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-lg glass flex items-center justify-center cursor-pointer transition-all hover:bg-neutral-900/5 dark:hover:bg-white/10 ${
+                currentPage === 'admin'
+                  ? 'text-brand-600 dark:text-brand-400 ring-1 ring-brand-400/40'
+                  : 'text-neutral-700 hover:text-brand-600 dark:text-zinc-300 dark:hover:text-brand-400'
+              }`}
+              title="لوحة مراقبة الواجهات"
+              aria-label="لوحة مراقبة الواجهات"
+            >
+              <Activity className="w-4 h-4 lg:w-5 lg:h-5" />
+            </button>
             <button onClick={toggleTheme}
               className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-lg glass flex items-center justify-center cursor-pointer text-neutral-700 hover:text-brand-600 dark:text-zinc-300 dark:hover:text-brand-400 transition-all hover:bg-neutral-900/5 dark:hover:bg-white/10"
               title={theme === 'dark' ? 'الوضع النهاري' : 'الوضع الليلي'}>
@@ -99,6 +111,15 @@ export default function Header({ currentPage, onNavigate, currentCountry, onOpen
                   {item.label}
                 </button>
               ))}
+              <button
+                onClick={() => { onNavigate('admin'); closeMobile(); }}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-right text-sm font-medium transition-all cursor-pointer ${
+                  currentPage === 'admin' ? 'bg-brand-400 text-neutral-950' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-900/5 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-white/5'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                مراقبة الواجهات
+              </button>
             </div>
           </nav>
         )}

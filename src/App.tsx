@@ -12,6 +12,7 @@ import HotelsPage from '@/pages/HotelsPage';
 import InsurancePage from '@/pages/InsurancePage';
 import RewardsPage from '@/pages/RewardsPage';
 import DiscoverIraqPage from '@/pages/DiscoverIraqPage';
+import AdminDashboard from '@/components/AdminDashboard';
 import type { PageKey } from '@/types';
 import type { IraqiMission } from '@/lib/iraqiMissions';
 import { lookupCity, lookupDistrict, locationsEqual, locationIdentityEqual, resolveMapFocus, type AppLocation } from '@/lib/cityCoordinates';
@@ -240,6 +241,7 @@ function AppContent() {
     insurance: <InsurancePage />,
     rewards: <RewardsPage />,
     'discover-iraq': <DiscoverIraqPage />,
+    admin: <AdminDashboard />,
   };
 
   return (
@@ -251,16 +253,18 @@ function AppContent() {
         </ErrorBoundary>
       </main>
       <ErrorBoundary label="مساعد Flyway الذكي" resetKey={`${appLocation.city || ''}:${page}`}>
-        <ChatWidget
-          lifted={page === 'navigator' && mapResultsOpen}
-          city={appLocation.city}
-          country={appLocation.country}
-          lat={appLocation.lat}
-          lng={appLocation.lng}
-          onOpenPlace={handleConciergePlace}
-          onAction={handleConciergeAction}
-          onFocusLocale={handleConciergeLocale}
-        />
+        {page !== 'admin' && (
+          <ChatWidget
+            lifted={page === 'navigator' && mapResultsOpen}
+            city={appLocation.city}
+            country={appLocation.country}
+            lat={appLocation.lat}
+            lng={appLocation.lng}
+            onOpenPlace={handleConciergePlace}
+            onAction={handleConciergeAction}
+            onFocusLocale={handleConciergeLocale}
+          />
+        )}
       </ErrorBoundary>
       {page !== 'navigator' && (
         <footer className="text-center py-6 border-t border-neutral-200 dark:border-white/10 text-neutral-500 dark:text-zinc-500 text-xs">

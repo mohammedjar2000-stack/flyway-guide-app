@@ -133,7 +133,8 @@ export type PageKey =
   | 'hotels'
   | 'insurance'
   | 'rewards'
-  | 'discover-iraq';
+  | 'discover-iraq'
+  | 'admin';
 
 export const FLYWAY_URL = 'https://flyway.travel/';
 

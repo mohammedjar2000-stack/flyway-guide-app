@@ -28,6 +28,7 @@ app.get('/api/health', async (_req, res) => {
     placeCount: pg ? total : filePlaceCount(),
     geoapifyConfigured: Boolean(env.geoapifyApiKey),
     googlePlacesConfigured: Boolean(env.googlePlacesApiKey),
+    rapidApiConfigured: Boolean(env.rapidApiKey),
   });
 });
 

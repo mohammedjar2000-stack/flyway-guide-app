@@ -130,8 +130,23 @@ export function peekTurkeyHotelCache(): DirectoryListing[] {
   return local;
 }
 
-export function isTurkeyHotelCacheFresh(): boolean {
-  return peekTurkeyHotelCache().length > 0;
+export function turkeyHotelCacheMeta(): { count: number; savedAt: number | null; version: number | null } {
+  try {
+    const raw = localStorage.getItem(HOTEL_CACHE_KEY);
+    if (!raw) {
+      const local = localHotelListings();
+      return { count: local.length, savedAt: null, version: HOTEL_CACHE_VERSION };
+    }
+    const parsed = JSON.parse(raw) as HotelCachePayload;
+    const listings = Array.isArray(parsed.listings) ? parsed.listings : [];
+    return {
+      count: listings.length,
+      savedAt: Number(parsed.savedAt) || null,
+      version: Number(parsed.version) || null,
+    };
+  } catch {
+    return { count: 0, savedAt: null, version: null };
+  }
 }
 
 /** Instant local Turkey hotels/resorts catalog, persisted in localStorage. */

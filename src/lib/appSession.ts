@@ -31,6 +31,7 @@ const PAGE_KEYS: PageKey[] = [
   'insurance',
   'rewards',
   'discover-iraq',
+  'admin',
 ];
 
 const PAGE_SET = new Set<string>(PAGE_KEYS);
