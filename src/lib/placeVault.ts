@@ -6,6 +6,7 @@ import { financialKind, financialLabel } from '@/lib/financialKind';
 import { placeGallery, placeHeroImage, placeKindLabel, resolvePlaceKind } from '@/lib/placeImagery';
 import { normalizeTurkeyEmergencyPhone } from '@/lib/turkeyEmergency';
 import { getAllVerifiedPlaces } from '@/lib/verifiedPlaces';
+import { CURATED_CATALOG_VERSION } from '@/lib/turkeyCuratedGuard';
 
 const DB_NAME = 'flyway-guide-places';
 const DB_VERSION = 1;
@@ -14,7 +15,7 @@ const META_STORE = 'meta';
 const LS_BACKUP_KEY = 'flyway.vault.backup.v1';
 const LS_META_KEY = 'flyway.vault.meta.v1';
 const PERSIST_DEBOUNCE_MS = 450;
-const BACKUP_CAP = 4000;
+const BACKUP_CAP = 6000;
 
 const byId = new Map<string, DirectoryListing>();
 const dirty = new Set<string>();
@@ -372,8 +373,8 @@ function writeLocalBackup(rows: DirectoryListing[]) {
     const featured = rows.filter((row) => row.is_featured || String(row.id).startsWith('verified-') || String(row.id).startsWith('user-'));
     const rest = rows.filter((row) => !featured.includes(row));
     const picked = [...featured, ...rest].slice(0, BACKUP_CAP).map(compactListing);
-    localStorage.setItem(LS_BACKUP_KEY, JSON.stringify({ v: 1, at: Date.now(), rows: picked }));
-    localStorage.setItem(LS_META_KEY, JSON.stringify({ count: byId.size, savedAt: Date.now(), revision }));
+    localStorage.setItem(LS_BACKUP_KEY, JSON.stringify({ v: CURATED_CATALOG_VERSION, at: Date.now(), rows: picked }));
+    localStorage.setItem(LS_META_KEY, JSON.stringify({ count: byId.size, savedAt: Date.now(), revision, catalog: CURATED_CATALOG_VERSION }));
   } catch {
     /* quota — IndexedDB remains the durable store */
   }
@@ -405,8 +406,8 @@ function bindLifecycle() {
   if (navigator.storage?.persist) void navigator.storage.persist();
 }
 
-function seedModules() {
-  if (seeded) return;
+function seedModules(force = false) {
+  if (seeded && !force) return;
   seeded = true;
   const seeds = getAllVerifiedPlaces();
   for (const item of ingestListings([seeds], { fromCache: true })) upsertMemory(item);
@@ -425,6 +426,7 @@ export async function bootPlaceVault(): Promise<void> {
     for (const item of incoming.filter(isStoredListing)) {
       upsertMemory(item);
     }
+    seedModules(true);
     const dropped = sanitizeCatalogInMemory();
     if (dropped.length && db) await deleteMany(db, dropped);
     if (dropped.length) writeLocalBackup(getVaultSnapshot());

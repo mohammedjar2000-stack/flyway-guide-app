@@ -320,12 +320,12 @@ function PlacesList({
   end = Math.min(items.length, end + overscan);
   const padTop = offsets[start] || 0;
   const padBottom = Math.max(0, totalHeight - (offsets[end] || totalHeight));
+  const renderAll = viewport.height < 32;
 
   return (
-    <div ref={rootRef} className="h-full overflow-y-auto overscroll-contain" onScroll={onScroll}>
-      <div style={{ height: padTop }} />
-      <div>
-        {items.slice(start, end).map((item) => (
+    <div ref={rootRef} className="h-full min-h-0 overflow-y-auto overscroll-contain touch-pan-y" onScroll={onScroll}>
+      {renderAll ? (
+        items.map((item) => (
           <div key={item.id} className="pb-2">
             <PlaceListRow
               item={item}
@@ -338,9 +338,29 @@ function PlacesList({
               onPreviewEnd={onPreviewEnd}
             />
           </div>
-        ))}
-      </div>
-      <div style={{ height: padBottom }} />
+        ))
+      ) : (
+        <>
+          <div style={{ height: padTop }} />
+          <div>
+            {items.slice(start, end).map((item) => (
+              <div key={item.id} className="pb-2">
+                <PlaceListRow
+                  item={item}
+                  active={activeId === item.id}
+                  hovered={hoveredId === item.id && activeId !== item.id}
+                  dist={formatDistance?.(item) ?? null}
+                  compact={compact}
+                  onSelect={onSelect}
+                  onPreview={onPreview}
+                  onPreviewEnd={onPreviewEnd}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ height: padBottom }} />
+        </>
+      )}
     </div>
   );
 }

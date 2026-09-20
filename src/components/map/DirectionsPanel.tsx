@@ -3,7 +3,7 @@ import {
   ArrowRight, ArrowUpDown, Bike, Bus, Car, Clock, Crosshair, Footprints, MapPin, Phone, Plane, X,
 } from 'lucide-react';
 import type { DirectoryListing } from '@/types';
-import { geocodePlace } from '@/services/geocode';
+import { queryMatchScore } from '@/lib/cityCoordinates';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { pinQuery } from '@/lib/placePrecision';
 import { getRecentPlaces, rememberPlace, type RecentPlace } from '@/lib/routeHistory';
@@ -99,7 +99,7 @@ export default function DirectionsPanel({
 
   useEffect(() => {
     const q = debouncedQuery.trim();
-    if (q.length < 2) {
+    if (q.length < 1) {
       setGeoHits([]);
       setGeoLoading(false);
       return;
@@ -123,11 +123,14 @@ export default function DirectionsPanel({
   }, [debouncedQuery, activeField, origin, destination]);
 
   const placeSuggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (q.length < 1) return nearbyPlaces.slice(0, 5);
+    const q = query.trim();
+    if (q.length < 1) return nearbyPlaces.slice(0, 8);
     return nearbyPlaces
-      .filter((p) => [p.name, p.address, p.city].join(' ').toLowerCase().includes(q))
-      .slice(0, 6);
+      .map((p) => ({ p, score: queryMatchScore(q, p.name, p.address, p.city, p.description) }))
+      .filter((row) => row.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map((row) => row.p);
   }, [nearbyPlaces, query]);
 
   const recentFiltered = useMemo(() => {
@@ -281,7 +284,7 @@ export default function DirectionsPanel({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y">
         {pickOnMap && activeField === 'dest' && (
           <p className="mx-3 mb-2 text-[12px] text-[#1a73e8] bg-[#e8f0fe] rounded-lg px-3 py-2">
             انقر على الخريطة لتحديد الوجهة

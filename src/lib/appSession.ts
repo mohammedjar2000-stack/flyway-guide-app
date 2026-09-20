@@ -166,8 +166,10 @@ export function peekSession(): AppSession {
 
   if (urlHasView() || urlLooksLikeMap(url)) {
     const next: Partial<AppSession> = { ...stored, ...url };
-    if (!params.has('cats')) next.cats = [...DEFAULT_CATEGORY_KEYS];
-    if (!params.has('q')) next.q = '';
+    if (!params.has('cats')) {
+      next.cats = stored.cats?.length ? stored.cats : [...DEFAULT_CATEGORY_KEYS];
+    }
+    if (!params.has('q')) next.q = stored.q ?? '';
     if (!url.view && urlLooksLikeMap(url)) next.view = 'navigator';
     return sanitizeSession(next);
   }

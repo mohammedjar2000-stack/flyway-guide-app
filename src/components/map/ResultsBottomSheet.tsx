@@ -107,7 +107,7 @@ export default function ResultsBottomSheet({ count, children, onDismiss }: Resul
           {formatPlaceCount(count)} مكان
         </span>
       </div>
-      <div className={`min-h-0 flex-1 px-3 pb-3 ${snap === 'peek' && dragH == null ? 'overflow-hidden' : 'overflow-hidden'}`}>
+      <div className={`min-h-0 flex-1 px-3 pb-3 ${snap === 'peek' && dragH == null ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'}`}>
         {children}
       </div>
     </div>

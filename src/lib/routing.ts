@@ -124,14 +124,39 @@ export function formatRouteDuration(min: number): string {
   return m ? `${h} س ${m} د` : `${h} ساعة`;
 }
 
+/** Istanbul/Turkey longitudes used as latitudes produce ~1200 km ghosts. */
+export function coordsLookSwapped(lat: number, lng: number): boolean {
+  return lat >= 26 && lat <= 35.5 && lng >= 36 && lng <= 42.6;
+}
+
+export function normalizeRouteCoord(lat: number, lng: number): { lat: number; lng: number } | null {
+  const pin = sanitizePin(lat, lng);
+  if (!pin) return null;
+  if (coordsLookSwapped(pin.lat, pin.lng)) return { lat: pin.lng, lng: pin.lat };
+  return pin;
+}
+
+export function isLocalRoutePair(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+  maxKm = 90,
+): boolean {
+  return haversineKm(a.lat, a.lng, b.lat, b.lng) <= maxKm;
+}
+
+function estimateDurationMin(km: number, mode: TravelMode): number {
+  const speed = mode === 'walking' ? 4.6 : mode === 'cycling' ? 14 : mode === 'transit' ? 22 : 28;
+  return Math.max(1, Math.round((km / speed) * 60));
+}
+
 export async function planRoute(
   origin: RoutePoint,
   dest: RoutePoint,
   mode: TravelMode,
   signal?: AbortSignal,
 ): Promise<RouteResult | null> {
-  const from = sanitizePin(origin.lat, origin.lng);
-  const to = sanitizePin(dest.lat, dest.lng);
+  const from = normalizeRouteCoord(origin.lat, origin.lng);
+  const to = normalizeRouteCoord(dest.lat, dest.lng);
   if (!from || !to) return null;
   const start = { ...origin, ...from };
   const end = { ...dest, ...to };
@@ -163,7 +188,7 @@ export async function planRoute(
     return {
       coordinates: [[start.lat, start.lng], [end.lat, end.lng]],
       distanceKm: km,
-      durationMin: Math.max(1, Math.round((km / (mode === 'walking' ? 5 : mode === 'cycling' ? 16 : 50)) * 60)),
+      durationMin: estimateDurationMin(km, mode),
       steps: ['المسافة خارج نطاق التوجيه التفصيلي'],
       mode,
       estimated: true,
@@ -178,6 +203,8 @@ export async function planRoute(
     try {
       const parsed = await fetchOsrm(`${base}/${path}`, signal ?? new AbortController().signal);
       if (!parsed) continue;
+      const inflated = parsed.distanceKm > Math.max(35, km * 3.2);
+      if (inflated) continue;
       if (mode === 'transit') {
         return {
           ...parsed,
@@ -198,7 +225,7 @@ export async function planRoute(
   return {
     coordinates: greatCircle(start, end),
     distanceKm: km,
-    durationMin: Math.max(1, Math.round((km / (mode === 'walking' ? 5 : mode === 'cycling' ? 16 : 50)) * 60)),
+    durationMin: estimateDurationMin(km, mode),
     steps: ['اتبع المسار نحو الوجهة', 'الوصول إلى الوجهة'],
     mode,
     estimated: true,
@@ -207,7 +234,7 @@ export async function planRoute(
 }
 
 export function pointFromCoords(lat: number, lng: number, label: string, source: RoutePoint['source']): RoutePoint | null {
-  const pin = sanitizePin(lat, lng);
+  const pin = normalizeRouteCoord(lat, lng);
   if (!pin) return null;
   return { label, lat: pin.lat, lng: pin.lng, source };
 }

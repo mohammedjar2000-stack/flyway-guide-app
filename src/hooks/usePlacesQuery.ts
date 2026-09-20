@@ -8,7 +8,7 @@ import { canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePreci
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
 import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
 import { isAllTurkeyCity, isTurkeyCountry, listingMatchesProvince } from '@/lib/turkeyScope';
-import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
+import { CURATED_CATALOG_VERSION, isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
 import { civicListRank } from '@/lib/civicRank';
 import { getVerifiedPlaces } from '@/lib/verifiedPlaces';
 import { turkeyAirportListings } from '@/lib/turkeyAirports';
@@ -157,7 +157,7 @@ export function usePlacesQuery({
   verifiedRef.current = verifiedAll;
 
   const pharmacyQuery = useQuery({
-    queryKey: ['places-pharmacies', 'curated-v1', cityKey],
+    queryKey: ['places-pharmacies', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -184,7 +184,7 @@ export function usePlacesQuery({
   });
 
   const marketsQuery = useQuery({
-    queryKey: ['places-markets', 'curated-v1', cityKey],
+    queryKey: ['places-markets', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -211,7 +211,7 @@ export function usePlacesQuery({
   });
 
   const hotelsQuery = useQuery({
-    queryKey: ['places-hotels', 'curated-v1', cityKey],
+    queryKey: ['places-hotels', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -238,7 +238,7 @@ export function usePlacesQuery({
   });
 
   const telecomQuery = useQuery({
-    queryKey: ['places-telecom', 'curated-v1', cityKey],
+    queryKey: ['places-telecom', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -265,7 +265,7 @@ export function usePlacesQuery({
   });
 
   const exchangeQuery = useQuery({
-    queryKey: ['places-exchange', 'curated-v1', cityKey],
+    queryKey: ['places-exchange', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -292,7 +292,7 @@ export function usePlacesQuery({
   });
 
   const transportQuery = useQuery({
-    queryKey: ['places-transport', 'curated-v1', cityKey],
+    queryKey: ['places-transport', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -319,7 +319,7 @@ export function usePlacesQuery({
   });
 
   const hospitalsQuery = useQuery({
-    queryKey: ['places-hospitals', 'curated-v1', cityKey],
+    queryKey: ['places-hospitals', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -346,7 +346,7 @@ export function usePlacesQuery({
   });
 
   const policeQuery = useQuery({
-    queryKey: ['places-police', 'curated-v1', cityKey],
+    queryKey: ['places-police', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -385,7 +385,7 @@ export function usePlacesQuery({
   });
 
   const bakeriesQuery = useQuery({
-    queryKey: ['places-bakeries', 'curated-v1', cityKey],
+    queryKey: ['places-bakeries', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -412,7 +412,7 @@ export function usePlacesQuery({
   });
 
   const airportsQuery = useQuery({
-    queryKey: ['places-airports', 'curated-v1', cityKey],
+    queryKey: ['places-airports', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
     staleTime: 60 * 60_000,
     gcTime: 6 * 60 * 60_000,
     retry: 0,
@@ -422,7 +422,7 @@ export function usePlacesQuery({
   });
 
   const query = useQuery({
-    queryKey: ['places-city', 'curated-v1', cityKey, skipLiveDining ? 1 : 0],
+    queryKey: ['places-city', `curated-v${CURATED_CATALOG_VERSION}`, cityKey, skipLiveDining ? 1 : 0],
     enabled: Boolean(cityBounds),
     staleTime: 15 * 60_000,
     gcTime: Infinity,
@@ -544,7 +544,7 @@ export function usePlacesQuery({
     const seenName = new Set<string>();
     const filtered = catalog.filter((item) => {
       const nearOrigin = origin
-        ? haversineKm(origin.lat, origin.lng, item.lat, item.lng) <= 18
+        ? haversineKm(origin.lat, origin.lng, item.lat, item.lng) <= 80
         : false;
       if (!listingMatchesProvince(item, resolvedCity, allTurkey) && !nearOrigin) return false;
       if (!matchesSelectedCategory(item, categories)) return false;

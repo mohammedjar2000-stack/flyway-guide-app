@@ -3,7 +3,7 @@ import { TURKEY_BBOX } from '@/lib/turkeyScope';
 import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
 
 /** Bump with hub catalog so vault/query caches drop contaminated rows. */
-export const CURATED_CATALOG_VERSION = 1;
+export const CURATED_CATALOG_VERSION = 2;
 
 const MATCH_METERS = 40;
 

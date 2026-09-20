@@ -57,9 +57,9 @@ export function isNearDuplicate(a: DirectoryListing, b: DirectoryListing): boole
   const sameStay = a.category_key === 'hotels' || a.category_key === 'restaurants';
   // Adjacent hotels/resorts are distinct properties — only collapse obvious name clones.
   if (sameStay) {
-    if (km < 0.025) return true;
+    if (km < 0.012) return true;
     if (!na || !nb) return false;
-    if (km < 0.18 && (na.includes(nb) || nb.includes(na))) return true;
+    if (km < 0.08 && (na.includes(nb) || nb.includes(na))) return true;
     return false;
   }
   // Operator chains (Turkcell / Vodafone / Türk Telekom) share names across districts.

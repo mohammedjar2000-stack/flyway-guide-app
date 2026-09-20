@@ -9,7 +9,7 @@ import { placeGallery, placeKindLabel, resolvePlaceKind, type PlaceKind } from '
 import { isAuthenticVenueName, isGenericSeedName } from '@/lib/placeAuthenticity';
 import { pinListing } from '@/lib/placePrecision';
 import { normalizeTurkeyEmergencyPhone } from '@/lib/turkeyEmergency';
-import { type CivicSeed } from '@/lib/istanbulCivicSeeds';
+import { ISTANBUL_CIVIC_SEEDS, type CivicSeed } from '@/lib/istanbulCivicSeeds';
 import { TURKEY_PROVINCE_SEEDS } from '@/lib/turkeyProvinceSeeds';
 import { turkeyAirportListings, turkeyAirportPins } from '@/lib/turkeyAirports';
 import { isAllTurkeyCity } from '@/lib/turkeyScope';
@@ -62,7 +62,9 @@ function fuelVerified(city: string): VerifiedPlace[] {
   }));
 }
 
-const PREMIER_LIMIT = 15;
+function slugFromEn(nameEn: string): string {
+  return nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'place';
+}
 
 function fromCivic(rows: CivicSeed[]): VerifiedPlace[] {
   return rows.map((row) => ({
@@ -76,6 +78,7 @@ function fromCivic(rows: CivicSeed[]): VerifiedPlace[] {
     lng: row.lng,
     rating: row.rating,
     website: row.website,
+    slug: slugFromEn(row.name_en),
   }));
 }
 
@@ -91,7 +94,7 @@ function hotelVerified(rows: Array<{
   place_kind?: PlaceKind;
   images?: string[];
 }>): VerifiedPlace[] {
-  return rows.slice(0, PREMIER_LIMIT).map((hotel) => ({
+  return rows.map((hotel) => ({
     category_key: 'hotels',
     name: hotel.name,
     name_en: hotel.name_en,
@@ -120,7 +123,7 @@ function diningVerified(rows: Array<{
   place_kind?: PlaceKind;
   images?: string[];
 }>): VerifiedPlace[] {
-  return rows.slice(0, PREMIER_LIMIT).map((venue) => ({
+  return rows.map((venue) => ({
     category_key: 'restaurants',
     name: venue.name,
     name_en: venue.name_en,
@@ -211,6 +214,7 @@ const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
     },
     v('embassy', 'قنصلية الولايات المتحدة — إسطنبول', 'US Consulate General Istanbul', 'Üç Şehitler Sokak, Istinye, Sarıyer', 41.10470, 29.01690, '08:00 - 17:00', '+90 212 335 9000', 4.3),
     ...fuelVerified('istanbul'),
+    ...fromCivic(ISTANBUL_CIVIC_SEEDS),
     ...fromCivic(TURKEY_HUB_SEEDS.istanbul),
   ],
   trabzon: [

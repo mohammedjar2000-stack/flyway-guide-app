@@ -1,7 +1,8 @@
-import type { RoutePoint } from '@/lib/routing';
+import type { RoutePoint, TravelMode } from '@/lib/routing';
 import { sanitizePin } from '@/lib/placePrecision';
 
 const KEY = 'flyway-route-recent';
+const DRAFT_KEY = 'flyway.route.draft.v1';
 const MAX = 8;
 
 export interface RecentPlace {
@@ -46,4 +47,51 @@ export function rememberPlace(point: Pick<RoutePoint, 'label' | 'lat' | 'lng'>):
   next.unshift({ label: point.label.trim(), lat: pin.lat, lng: pin.lng, at: Date.now() });
   write(next);
   return next.slice(0, MAX);
+}
+
+export interface RouteDraft {
+  origin: RoutePoint | null;
+  dest: RoutePoint | null;
+  mode: TravelMode;
+  open?: boolean;
+}
+
+export function readRouteDraft(): RouteDraft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RouteDraft>;
+    const pin = (p?: RoutePoint | null) => {
+      if (!p) return null;
+      const next = sanitizePin(p.lat, p.lng);
+      if (!next || !p.label) return null;
+      return { ...p, lat: next.lat, lng: next.lng } as RoutePoint;
+    };
+    return {
+      origin: pin(parsed.origin ?? null),
+      dest: pin(parsed.dest ?? null),
+      mode: parsed.mode === 'walking' || parsed.mode === 'transit' || parsed.mode === 'cycling' || parsed.mode === 'flight'
+        ? parsed.mode
+        : 'driving',
+      open: Boolean(parsed.open),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeRouteDraft(draft: RouteDraft): void {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    /* quota */
+  }
+}
+
+export function clearRouteDraft(): void {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
 }

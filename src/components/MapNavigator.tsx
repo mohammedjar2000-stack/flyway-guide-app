@@ -22,8 +22,8 @@ import { DEFAULT_CATEGORY_KEYS, DEFAULT_MAP_CENTER, isAllCategoriesSelected } fr
 import { FALLBACK_MAP_CENTER, bboxAround, getCityBoundingBox, locationsEqual, resolveCatalogCity, safeMapCenter, type AppLocation } from '@/lib/cityCoordinates';
 import { getMissionById, missionToListing } from '@/lib/iraqiMissions';
 import { reverseGeocode } from '@/services/geocode';
-import { rememberPlace } from '@/lib/routeHistory';
-import { planRoute, pointFromCoords, type RoutePoint, type RouteResult, type TravelMode } from '@/lib/routing';
+import { clearRouteDraft, readRouteDraft, rememberPlace, writeRouteDraft } from '@/lib/routeHistory';
+import { isLocalRoutePair, planRoute, pointFromCoords, type RoutePoint, type RouteResult, type TravelMode } from '@/lib/routing';
 import CityPickerBar from '@/components/map/CityPickerBar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { lookupCity } from '@/lib/cityCoordinates';
@@ -69,10 +69,10 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   const [flyToken, setFlyToken] = useState(0);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [directionsOpen, setDirectionsOpen] = useState(false);
-  const [originPoint, setOriginPoint] = useState<RoutePoint | null>(null);
-  const [destPoint, setDestPoint] = useState<RoutePoint | null>(null);
-  const [travelMode, setTravelMode] = useState<TravelMode>('driving');
+  const [directionsOpen, setDirectionsOpen] = useState(() => Boolean(readRouteDraft()?.open));
+  const [originPoint, setOriginPoint] = useState<RoutePoint | null>(() => readRouteDraft()?.origin ?? null);
+  const [destPoint, setDestPoint] = useState<RoutePoint | null>(() => readRouteDraft()?.dest ?? null);
+  const [travelMode, setTravelMode] = useState<TravelMode>(() => readRouteDraft()?.mode ?? 'driving');
   const [routeData, setRouteData] = useState<RouteResult | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
@@ -143,6 +143,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       setRouteData(null);
       setOriginPoint(null);
       setDestPoint(null);
+      clearRouteDraft();
       setSelected(null);
       setFocusedItem(null);
       setNavigating(false);
@@ -205,11 +206,20 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     return () => ctrl.abort();
   }, [originPoint, destPoint, travelMode]);
 
+  useEffect(() => {
+    writeRouteDraft({ origin: originPoint, dest: destPoint, mode: travelMode, open: directionsOpen });
+  }, [originPoint, destPoint, travelMode, directionsOpen]);
+
   const origin = useMemo(() => {
     if (customLoc) return { lat: customLoc.lat, lng: customLoc.lng };
-    if (!hasChosenPlace && geo.position) return { lat: geo.position.lat, lng: geo.position.lng };
+    if (searchLocation && Number.isFinite(searchLocation.lat) && Number.isFinite(searchLocation.lng)) {
+      return { lat: searchLocation.lat, lng: searchLocation.lng };
+    }
+    if (geo.position && isLocalRoutePair(geo.position, FALLBACK_MAP_CENTER, 90)) {
+      return { lat: geo.position.lat, lng: geo.position.lng };
+    }
     return { lat: FALLBACK_MAP_CENTER.lat, lng: FALLBACK_MAP_CENTER.lng };
-  }, [customLoc, geo.position, hasChosenPlace]);
+  }, [customLoc, geo.position, searchLocation]);
 
   const mapCenter = (() => {
     if (navigating && geo.position) {
@@ -359,6 +369,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     }
   }, [geo]);
 
+  const mapAnchorPoint = useCallback((): RoutePoint | null => {
+    const lat = customLoc?.lat ?? searchLocation?.lat ?? FALLBACK_MAP_CENTER.lat;
+    const lng = customLoc?.lng ?? searchLocation?.lng ?? FALLBACK_MAP_CENTER.lng;
+    const label = customLoc?.label || searchLocation?.district || searchLocation?.label || searchLocation?.city || 'مركز الخريطة';
+    return pointFromCoords(lat, lng, label, 'map');
+  }, [customLoc, searchLocation]);
+
   const ensureGpsOrigin = useCallback(() => {
     if (!geo.position) return;
     const sameAsDest = (lat: number, lng: number) => {
@@ -367,13 +384,39 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         && Math.abs(lng - destPoint.lng) < 0.00025;
     };
     if (sameAsDest(geo.position.lat, geo.position.lng)) return;
+    const anchor = mapAnchorPoint();
+    if (anchor && !isLocalRoutePair(geo.position, anchor, 90)) {
+      if (!originPoint) setOriginPoint(anchor);
+      return;
+    }
     setOriginPoint({
       label: 'موقعي الحالي',
       lat: geo.position.lat,
       lng: geo.position.lng,
       source: 'gps',
     });
-  }, [destPoint, geo.position]);
+  }, [destPoint, geo.position, mapAnchorPoint, originPoint]);
+
+  const ensureLocalOrigin = useCallback(() => {
+    if (originPoint) {
+      const anchor = mapAnchorPoint();
+      if (originPoint.source === 'gps' && anchor && !isLocalRoutePair(originPoint, destPoint || anchor, 90)) {
+        setOriginPoint(anchor);
+      }
+      return;
+    }
+    const anchor = mapAnchorPoint();
+    if (geo.position && anchor && isLocalRoutePair(geo.position, anchor, 90)) {
+      setOriginPoint({
+        label: 'موقعي الحالي',
+        lat: geo.position.lat,
+        lng: geo.position.lng,
+        source: 'gps',
+      });
+      return;
+    }
+    if (anchor) setOriginPoint(anchor);
+  }, [destPoint, geo.position, mapAnchorPoint, originPoint]);
 
   useEffect(() => {
     if (!searchLocation?.poiId || !poiListing) return;
@@ -389,12 +432,24 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     });
     setDirectionsOpen(true);
     if (geo.position) {
-      setOriginPoint({
-        label: 'موقعي الحالي',
-        lat: geo.position.lat,
-        lng: geo.position.lng,
-        source: 'gps',
-      });
+      const local = isLocalRoutePair(geo.position, { lat: mission.lat, lng: mission.lng }, 90);
+      if (local) {
+        setOriginPoint({
+          label: 'موقعي الحالي',
+          lat: geo.position.lat,
+          lng: geo.position.lng,
+          source: 'gps',
+        });
+      } else {
+        const anchor = pointFromCoords(
+          searchLocation?.lat ?? FALLBACK_MAP_CENTER.lat,
+          searchLocation?.lng ?? FALLBACK_MAP_CENTER.lng,
+          searchLocation?.label || searchLocation?.city || 'مركز الخريطة',
+          'map',
+        );
+        if (anchor) setOriginPoint(anchor);
+        else setOriginPoint(null);
+      }
     } else {
       setOriginPoint(null);
     }
@@ -407,11 +462,11 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     if (directionsOpen || navigating) {
       const point = pointFromCoords(item.lat, item.lng, item.name, 'place');
       if (point) applyRoutePoint(routeField, point);
-      if (geo.position) ensureGpsOrigin();
+      ensureLocalOrigin();
       return;
     }
     setSelected(item);
-  }, [applyRoutePoint, clearPreview, directionsOpen, ensureGpsOrigin, geo.position, navigating, routeField]);
+  }, [applyRoutePoint, clearPreview, directionsOpen, ensureLocalOrigin, navigating, routeField]);
 
   const handleCategoriesChange = useCallback((next: string[]) => {
     setFocusedItem(null);
@@ -440,7 +495,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setDirectionsOpen(true);
     setTravelMode((m) => (m === 'walking' ? 'walking' : 'driving'));
     setRouteField('origin');
-    if (geo.position) ensureGpsOrigin();
+    ensureLocalOrigin();
   };
 
   const closeDirections = () => {
@@ -514,8 +569,8 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setRouteField(field);
   }, []);
 
-  const selectedDist = selected && geo.position
-    ? haversineKm(geo.position.lat, geo.position.lng, selected.lat, selected.lng)
+  const selectedDist = selected
+    ? haversineKm(origin.lat, origin.lng, selected.lat, selected.lng)
     : null;
 
   return (
@@ -674,7 +729,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       {!navigating && (
       <div className="absolute top-[5.75rem] left-3 z-40 pointer-events-none hidden md:block">
         {directionsOpen && (
-          <div className="pointer-events-auto w-[380px] max-h-[calc(100dvh-8rem)]">
+          <div className="pointer-events-auto w-[380px] h-[calc(100dvh-8rem)] max-h-[calc(100dvh-8rem)] min-h-0 flex flex-col">
             <DirectionsPanel
               origin={originPoint}
               destination={destPoint}
@@ -704,7 +759,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && directionsOpen && (
-        <div className="absolute z-50 inset-x-3 top-[5.75rem] md:hidden pointer-events-auto max-h-[min(52vh,420px)]">
+        <div className="absolute z-50 inset-x-3 top-[5.75rem] md:hidden pointer-events-auto max-h-[min(58vh,480px)] min-h-0 flex flex-col overflow-hidden">
           <DirectionsPanel
             origin={originPoint}
             destination={destPoint}

@@ -723,8 +723,11 @@ html.dark .gmaps-directions .gmaps-mode-active {
 }
 
 .places-drawer .overflow-y-auto,
+.results-sheet .overflow-y-auto,
+.gmaps-directions .overflow-y-auto,
 .map-filter-shell {
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes map-pin-pulse {

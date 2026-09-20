@@ -1,7 +1,7 @@
 import type { CivicSeed } from '@/lib/istanbulCivicSeeds';
 
 /** Premier curated POIs that fill gaps after the dense/OSM purge. 10–15 per category per hub. */
-export const HUB_CATALOG_VERSION = 1;
+export const HUB_CATALOG_VERSION = 2;
 
 const H24 = '24/7';
 const MARKET = '10:00 - 22:00';
