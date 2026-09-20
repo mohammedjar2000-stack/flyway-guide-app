@@ -14,6 +14,14 @@ export const MAP_FOCUS_ZOOM = 16;
 
 export const DEFAULT_CATEGORY_KEYS = CATEGORIES.filter((c) => c.key !== 'airports').map((c) => c.key);
 
+export function sameCategoryKeys(a: readonly string[], b: readonly string[]) {
+  return a.length === b.length && b.every((key) => a.includes(key));
+}
+
+export function isAllCategoriesSelected(selected: readonly string[]) {
+  return sameCategoryKeys(selected, DEFAULT_CATEGORY_KEYS);
+}
+
 export const EMERGENCY_CATEGORY_KEYS = ['hospitals', 'pharmacies', 'police'] as const;
 
 export const MIN_FETCH_ZOOM = 10;

@@ -84,8 +84,21 @@ function MapFitListings({
 
 function MapFocusOnItem({ item }: { item: DirectoryListing | null }) {
   const map = useMap();
+  const lastId = useRef<string | null>(null);
   useEffect(() => {
-    if (item) map.setView([item.lat, item.lng], Math.min(17, MAP_MAX_ZOOM), { animate: true });
+    if (!item) {
+      lastId.current = null;
+      return;
+    }
+    if (lastId.current === item.id) return;
+    lastId.current = item.id;
+    const currentZoom = map.getZoom();
+    const nextZoom = Math.min(Math.max(currentZoom, MAP_FOCUS_ZOOM), MAP_MAX_ZOOM);
+    if (currentZoom >= MAP_FOCUS_ZOOM) {
+      map.panTo([item.lat, item.lng], { animate: true });
+      return;
+    }
+    map.setView([item.lat, item.lng], nextZoom, { animate: true });
   }, [item, map]);
   return null;
 }
@@ -254,14 +267,13 @@ function MapView({
   onUserDrag,
   originPoint = null,
   destPoint = null,
-  pickOnMap: _pickOnMap = false,
+  pickOnMap = false,
   onMapClick,
   directionsOpen = false,
   navigating = false,
   fitListings = false,
   fitListingsToken = '',
 }: MapViewProps) {
-  void _pickOnMap;
   const originIcon = useMemo(() => makeOriginIcon(), []);
   const destIcon = useMemo(() => makeDestIcon(), []);
   const mapMarkers = useMemo(() => {
@@ -317,7 +329,7 @@ function MapView({
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={Math.min(Math.max(center.zoom, MAP_MIN_ZOOM), MAP_MAX_ZOOM)}
-        className={`w-full h-full waze-map${onMapClick && !navigating ? ' pick-origin' : ''}`}
+        className={`w-full h-full waze-map${pickOnMap && !navigating ? ' pick-origin' : ''}`}
         zoomControl={false}
         minZoom={MAP_MIN_ZOOM}
         maxZoom={MAP_MAX_ZOOM}
@@ -357,7 +369,7 @@ function MapView({
         <MapFitBounds route={route?.coordinates ?? null} panelOpen={directionsOpen} enabled={!navigating && directionsOpen} />
         <ViewportWatcher onChange={handleViewport} />
         <DragDisablesFollow onDragStart={onUserDrag} />
-        <MapClickCatcher enabled={Boolean(onMapClick) && !navigating} onClick={onMapClick} />
+        <MapClickCatcher enabled={pickOnMap && Boolean(onMapClick) && !navigating} onClick={onMapClick} />
 
         {userPosition && <UserPuck position={userPosition} follow={followUser} tight={navigating} />}
 
@@ -389,7 +401,7 @@ function MapView({
         )}
 
         {mapMarkers.length > 70 ? (
-          <MarkerClusterGroup removeOutsideVisibleBounds chunkedLoading>
+          <MarkerClusterGroup removeOutsideVisibleBounds={false} chunkedLoading>
             {markerNodes}
           </MarkerClusterGroup>
         ) : (

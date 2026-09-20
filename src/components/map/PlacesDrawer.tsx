@@ -1,13 +1,14 @@
-import { List } from 'lucide-react';
+import { List, X } from 'lucide-react';
 import type { ReactNode, WheelEvent } from 'react';
 import { formatPlaceCount } from '@/hooks/useCategoryCounts';
 
 interface PlacesDrawerProps {
   count: number;
   children: ReactNode;
+  onDismiss?: () => void;
 }
 
-export default function PlacesDrawer({ count, children }: PlacesDrawerProps) {
+export default function PlacesDrawer({ count, children, onDismiss }: PlacesDrawerProps) {
   const stopMapZoom = (event: WheelEvent<HTMLDivElement>) => {
     event.stopPropagation();
   };
@@ -24,6 +25,16 @@ export default function PlacesDrawer({ count, children }: PlacesDrawerProps) {
         <span className="flex-1 text-right text-sm font-bold truncate tabular-nums">
           {formatPlaceCount(count)} مكان
         </span>
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="w-8 h-8 rounded-full bg-slate-100 text-neutral-700 hover:bg-slate-200 dark:bg-white/10 dark:text-zinc-200 dark:hover:bg-white/15 flex items-center justify-center cursor-pointer"
+            aria-label="إخفاء القائمة"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">
         {children}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent } from 'react';
-import { List } from 'lucide-react';
+import { List, X } from 'lucide-react';
 import { formatPlaceCount } from '@/hooks/useCategoryCounts';
 
 type Snap = 'peek' | 'mid' | 'full';
@@ -7,6 +7,7 @@ type Snap = 'peek' | 'mid' | 'full';
 interface ResultsBottomSheetProps {
   count: number;
   children: ReactNode;
+  onDismiss?: () => void;
 }
 
 const PEEK = 118;
@@ -27,9 +28,9 @@ function nearestSnap(height: number, viewportH: number): Snap {
   ), 'peek' as Snap);
 }
 
-export default function ResultsBottomSheet({ count, children }: ResultsBottomSheetProps) {
+export default function ResultsBottomSheet({ count, children, onDismiss }: ResultsBottomSheetProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [snap, setSnap] = useState<Snap>('peek');
+  const [snap, setSnap] = useState<Snap>('mid');
   const [dragH, setDragH] = useState<number | null>(null);
   const drag = useRef<{ startY: number; startH: number } | null>(null);
 
@@ -91,6 +92,16 @@ export default function ResultsBottomSheet({ count, children }: ResultsBottomShe
         <span className="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-white/25" />
       </button>
       <div className="relative shrink-0 flex items-center gap-2 h-10 px-4 text-neutral-950 dark:text-white">
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="w-8 h-8 rounded-full bg-slate-100 text-neutral-700 hover:bg-slate-200 dark:bg-white/10 dark:text-zinc-200 dark:hover:bg-white/15 flex items-center justify-center cursor-pointer shrink-0"
+            aria-label="إخفاء القائمة"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
         <List className="w-4 h-4 shrink-0 text-neutral-700 dark:text-zinc-200" />
         <span className="flex-1 text-right text-sm font-bold truncate tabular-nums">
           {formatPlaceCount(count)} مكان

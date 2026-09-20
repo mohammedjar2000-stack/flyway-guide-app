@@ -37,6 +37,7 @@ function directoryFilterFromSession(session: AppSession) {
 function AppContent() {
   const initial = useMemo(() => resolveInitialSession(), []);
   const [page, setPage] = useState<PageKey>(initial.view);
+  const [mapResultsOpen, setMapResultsOpen] = useState(false);
   const [appLocation, setAppLocation] = useState<AppLocation>(() => locationFromFallbackSession(initial));
   const [directoryFilter, setDirectoryFilter] = useState<{ country?: string; city?: string; district?: string; category?: string } | null>(
     () => directoryFilterFromSession(initial),
@@ -65,6 +66,7 @@ function AppContent() {
 
   const persistPage = useCallback((nextPage: PageKey) => {
     setPage(nextPage);
+    if (nextPage !== 'navigator') setMapResultsOpen(false);
     writeSession({ view: nextPage }, 'push');
   }, []);
 
@@ -229,6 +231,7 @@ function AppContent() {
         searchLocation={appLocation}
         onLocationChange={handleLocationChange}
         onCameraChange={handleCameraChange}
+        onResultsOpenChange={setMapResultsOpen}
       />
     ),
     directory: <DirectoryPage locationFilter={directoryFilter} />,
@@ -249,7 +252,7 @@ function AppContent() {
       </main>
       <ErrorBoundary label="مساعد Flyway الذكي" resetKey={`${appLocation.city || ''}:${page}`}>
         <ChatWidget
-          lifted={page === 'navigator'}
+          lifted={page === 'navigator' && mapResultsOpen}
           city={appLocation.city}
           country={appLocation.country}
           lat={appLocation.lat}

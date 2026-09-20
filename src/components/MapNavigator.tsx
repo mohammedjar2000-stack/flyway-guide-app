@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Crosshair, Navigation, Route, X,
+  Crosshair, Navigation, Route, SlidersHorizontal, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { haversineKm, type MapBounds } from '@/lib/geo';
@@ -9,7 +9,7 @@ import { usePlacesQuery } from '@/hooks/usePlacesQuery';
 import { usePersistedMapFilters } from '@/hooks/usePersistedMapFilters';
 import type { DirectoryListing } from '@/types';
 import MapView from '@/components/map/MapView';
-import CategoryFilterBar from '@/components/map/CategoryFilterBar';
+import CategoryFilterSheet from '@/components/map/CategoryFilterSheet';
 import PlaceDetailsSheet from '@/components/map/PlaceDetailsSheet';
 import PlacesList from '@/components/map/PlacesList';
 import PlacesDrawer from '@/components/map/PlacesDrawer';
@@ -18,7 +18,7 @@ import PlaceHoverCard from '@/components/map/PlaceHoverCard';
 import DirectionsPanel from '@/components/map/DirectionsPanel';
 import LiveNavOverlay from '@/components/map/LiveNavOverlay';
 import { usePlacePreview } from '@/hooks/usePlacePreview';
-import { DEFAULT_MAP_CENTER } from '@/lib/mapConfig';
+import { DEFAULT_CATEGORY_KEYS, DEFAULT_MAP_CENTER, isAllCategoriesSelected } from '@/lib/mapConfig';
 import { FALLBACK_MAP_CENTER, bboxAround, getCityBoundingBox, locationsEqual, resolveCatalogCity, safeMapCenter, type AppLocation } from '@/lib/cityCoordinates';
 import { getMissionById, missionToListing } from '@/lib/iraqiMissions';
 import { reverseGeocode } from '@/services/geocode';
@@ -35,9 +35,10 @@ interface MapNavigatorProps {
   searchLocation?: AppLocation | null;
   onLocationChange?: (loc: AppLocation) => void;
   onCameraChange?: (lat: number, lng: number, zoom: number) => void;
+  onResultsOpenChange?: (open: boolean) => void;
 }
 
-export default function MapNavigator({ searchLocation, onLocationChange, onCameraChange }: MapNavigatorProps) {
+export default function MapNavigator({ searchLocation, onLocationChange, onCameraChange, onResultsOpenChange }: MapNavigatorProps) {
   const hasChosenPlace = Boolean(searchLocation?.city || searchLocation?.district);
   const geo = useGeolocation({ autoStart: false });
 
@@ -67,6 +68,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   const [followUser, setFollowUser] = useState(false);
   const [flyToken, setFlyToken] = useState(0);
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const [originPoint, setOriginPoint] = useState<RoutePoint | null>(null);
   const [destPoint, setDestPoint] = useState<RoutePoint | null>(null);
@@ -313,6 +315,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     return pin ? [pin, ...rest] : pool;
   }, [listings, poiListing, searchLocation?.lat, searchLocation?.lng, searchLocation?.poiId]);
 
+  const categoryFilterActive = !isAllCategoriesSelected(selectedCategories);
+  const showResultsList = categoryFilterActive && !selected && !directionsOpen && !navigating;
+
+  useEffect(() => {
+    onResultsOpenChange?.(showResultsList);
+  }, [onResultsOpenChange, showResultsList]);
+
   const estWalkTime = (km: number) => {
     const m = Math.round((km / 5) * 60);
     return m < 60 ? `${m} دقيقة` : `${Math.floor(m / 60)} س ${m % 60} د`;
@@ -392,18 +401,28 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
 
   const handleItemClick = useCallback((item: DirectoryListing) => {
     clearPreview();
-    const point = pointFromCoords(item.lat, item.lng, item.name, 'place');
-    if (point) applyRoutePoint('dest', point);
     setFocusedItem(item);
-    if (geo.position) ensureGpsOrigin();
-    if (directionsOpen || navigating) return;
+    setFiltersOpen(false);
+    if (directionsOpen || navigating) {
+      const point = pointFromCoords(item.lat, item.lng, item.name, 'place');
+      if (point) applyRoutePoint(routeField, point);
+      if (geo.position) ensureGpsOrigin();
+      return;
+    }
     setSelected(item);
-  }, [applyRoutePoint, clearPreview, directionsOpen, navigating, ensureGpsOrigin, geo.position]);
+  }, [applyRoutePoint, clearPreview, directionsOpen, ensureGpsOrigin, geo.position, navigating, routeField]);
 
   const handleCategoriesChange = useCallback((next: string[]) => {
     setFocusedItem(null);
     setSelected(null);
     setSelectedCategories(next);
+    setFiltersOpen(false);
+  }, [setSelectedCategories]);
+
+  const dismissResults = useCallback(() => {
+    setFocusedItem(null);
+    setSelected(null);
+    setSelectedCategories([...DEFAULT_CATEGORY_KEYS]);
   }, [setSelectedCategories]);
 
   const openDirections = () => {
@@ -416,6 +435,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     setDestPoint(fromPlace);
     if (selected) setFocusedItem(selected);
     setSelected(null);
+    setFiltersOpen(false);
     setDirectionsOpen(true);
     setTravelMode((m) => (m === 'walking' ? 'walking' : 'driving'));
     setRouteField('origin');
@@ -457,18 +477,8 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     } catch {
       /* coords label is enough */
     }
-    applyRoutePoint('dest', fallback);
-    setSelected(null);
-    setDirectionsOpen(true);
-    if (geo.position && !originPoint) {
-      setOriginPoint({
-        label: 'موقعي الحالي',
-        lat: geo.position.lat,
-        lng: geo.position.lng,
-        source: 'gps',
-      });
-    }
-  }, [applyRoutePoint, originPoint, geo.position]);
+    applyRoutePoint(routeField, fallback);
+  }, [applyRoutePoint, routeField]);
 
   const swapRoute = () => {
     if (!originPoint || !destPoint) return;
@@ -534,7 +544,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
             }}
             originPoint={originPoint}
             destPoint={destPoint}
-            pickOnMap={!navigating}
+            pickOnMap={directionsOpen && pickOnMap}
             onMapClick={handleMapClick}
             directionsOpen={directionsOpen}
             navigating={navigating}
@@ -549,17 +559,6 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         <div className="pointer-events-auto w-full max-w-xl mx-auto">
           <CityPickerBar location={searchLocation} onSelect={handleCitySelect} />
         </div>
-        {!directionsOpen && (
-          <div className="pointer-events-auto w-full md:hidden rounded-2xl bg-white/75 backdrop-blur-md border border-white/50 p-1 shadow-sm">
-            <CategoryFilterBar
-              layout="chips"
-              selected={selectedCategories}
-              onChange={handleCategoriesChange}
-              counts={categoryCounts}
-              total={scopedTotal}
-            />
-          </div>
-        )}
         {(customLoc || tooZoomedOut || (loading && listings.length === 0) || error || fromFallback || (locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed)) && (
           <div className="pointer-events-auto shrink-0 flex flex-wrap items-center justify-center gap-2 text-[11px] max-w-xl">
             {customLoc && (
@@ -598,55 +597,32 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && (
-        <div dir="ltr" className="absolute z-40 left-3 md:left-4 top-[4.75rem] bottom-[8.25rem] md:bottom-3 min-h-0 pointer-events-none hidden md:flex flex-col items-start gap-2">
-          {!directionsOpen && (
-            <div
-              className="pointer-events-auto min-h-0 w-auto max-h-[calc(100%-11.5rem)] rounded-2xl bg-white/95 shadow-[0_8px_28px_rgba(15,23,42,0.18)] border border-black/[0.06] dark:bg-neutral-900/90 dark:border-white/10 overflow-y-auto overscroll-contain scroll-smooth touch-pan-y map-filter-shell"
-              onWheel={(e) => e.stopPropagation()}
-            >
-              <CategoryFilterBar
-                selected={selectedCategories}
-                onChange={handleCategoriesChange}
-                counts={categoryCounts}
-                total={scopedTotal}
-              />
-            </div>
-          )}
-          <div className="pointer-events-auto mt-auto mb-[4.35rem] flex flex-col gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setDirectionsOpen((open) => !open)}
-              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
-                directionsOpen
-                  ? 'bg-[#e8f0fe] border-[#1a73e8]/40 text-[#1a73e8]'
-                  : 'bg-white border-slate-200 text-[#1a73e8]'
-              }`}
-              aria-label="من وإلى"
-              aria-pressed={directionsOpen}
-            >
-              <Route className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={locateMe}
-              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
-                followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-neutral-950/90 border-white/15 text-white'
-              }`}
-              aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
-              aria-pressed={followUser}
-            >
-              <Navigation className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!navigating && (
-        <div className="absolute z-40 right-3 bottom-[8.35rem] md:hidden pointer-events-none">
+        <div className={`absolute z-40 right-3 pointer-events-none ${
+          showResultsList ? 'bottom-[min(44vh,360px)] md:bottom-[5.5rem]' : 'bottom-[5.5rem]'
+        }`}>
           <div className="pointer-events-auto flex flex-col gap-2">
             <button
               type="button"
-              onClick={() => setDirectionsOpen((open) => !open)}
+              onClick={() => {
+                setDirectionsOpen(false);
+                setFiltersOpen((open) => !open);
+              }}
+              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
+                filtersOpen || categoryFilterActive
+                  ? 'bg-brand-400 border-brand-300 text-neutral-950'
+                  : 'bg-white border-slate-200 text-neutral-800'
+              }`}
+              aria-label="التصنيفات"
+              aria-pressed={filtersOpen || categoryFilterActive}
+            >
+              <SlidersHorizontal className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFiltersOpen(false);
+                setDirectionsOpen((open) => !open);
+              }}
               className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
                 directionsOpen
                   ? 'bg-[#e8f0fe] border-[#1a73e8]/40 text-[#1a73e8]'
@@ -689,7 +665,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && (
-      <div className="absolute top-[4.75rem] left-[4.75rem] md:left-[13.5rem] z-40 pointer-events-none hidden md:block">
+      <div className="absolute top-[4.75rem] left-3 z-40 pointer-events-none hidden md:block">
         {directionsOpen && (
           <div className="pointer-events-auto w-[380px] max-h-[calc(100dvh-8rem)]">
             <DirectionsPanel
@@ -721,7 +697,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && directionsOpen && (
-        <div className="absolute z-50 inset-x-3 top-[7.25rem] md:hidden pointer-events-auto max-h-[min(52vh,420px)]">
+        <div className="absolute z-50 inset-x-3 top-[4.75rem] md:hidden pointer-events-auto max-h-[min(52vh,420px)]">
           <DirectionsPanel
             origin={originPoint}
             destination={destPoint}
@@ -759,13 +735,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         />
       )}
 
-      {!navigating && (
+      {!navigating && showResultsList && (
         <div
           className="absolute z-50 right-3 top-[4.75rem] bottom-3 w-[340px] pointer-events-none hidden md:flex flex-col"
           onWheel={(e) => e.stopPropagation()}
         >
           <ErrorBoundary label="قائمة الأماكن" resetKey={selectedCategories.join(',')}>
-            <PlacesDrawer count={drawerListings.length}>
+            <PlacesDrawer count={drawerListings.length} onDismiss={dismissResults}>
               <PlacesList
                 items={drawerListings}
                 loading={(loading || dbLoading) && drawerListings.length === 0}
@@ -782,10 +758,10 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         </div>
       )}
 
-      {!navigating && !directionsOpen && (
+      {!navigating && showResultsList && (
         <div className="absolute z-50 inset-x-0 bottom-0 md:hidden pointer-events-none">
           <ErrorBoundary label="قائمة الأماكن" resetKey={selectedCategories.join(',')}>
-            <ResultsBottomSheet count={drawerListings.length}>
+            <ResultsBottomSheet count={drawerListings.length} onDismiss={dismissResults}>
               <PlacesList
                 compact
                 items={drawerListings}
@@ -800,6 +776,15 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
           </ErrorBoundary>
         </div>
       )}
+
+      <CategoryFilterSheet
+        open={filtersOpen && !navigating}
+        selected={selectedCategories}
+        onChange={handleCategoriesChange}
+        onClose={() => setFiltersOpen(false)}
+        counts={categoryCounts}
+        total={scopedTotal}
+      />
 
       {selected && !directionsOpen && !navigating && (
         <PlaceDetailsSheet
