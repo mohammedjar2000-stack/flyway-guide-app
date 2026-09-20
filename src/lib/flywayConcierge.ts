@@ -9,7 +9,8 @@ import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
 import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
 import { parseHours } from '@/lib/hours';
 import { IRAQI_MISSIONS, type IraqiMission } from '@/lib/iraqiMissions';
-import { getVaultSnapshot } from '@/lib/placeVault';
+import { getVaultSnapshot, replaceWithDatabaseListings } from '@/lib/placeVault';
+import { fetchPoiNearby } from '@/services/poiService';
 
 export interface ConciergePlace {
   id: string;
@@ -432,6 +433,28 @@ export function conciergePlaceToListing(place: ConciergePlace): DirectoryListing
   };
 }
 
+async function hydrateConciergeDatabase(
+  origin: { lat: number; lng: number },
+  city: CityCoordinate | null,
+  categories: string[],
+  district: boolean,
+  prefer247: boolean,
+): Promise<void> {
+  const radiusMeters = district ? 16000 : 48000;
+  const keys = categories.length ? categories : ['pharmacies', 'hospitals'];
+  const batches = await Promise.all(keys.slice(0, 4).map((category) => fetchPoiNearby({
+    lat: origin.lat,
+    lng: origin.lng,
+    radiusMeters,
+    category: category === 'police' ? 'embassy' : category,
+    city: city?.en,
+    only24h: category === 'pharmacies' && prefer247,
+    limit: 400,
+  }).catch(() => [] as DirectoryListing[])));
+  const rows = batches.flat();
+  if (rows.length) replaceWithDatabaseListings(rows);
+}
+
 export function makeConciergeGreeting(ctx: ConciergeContext): string {
   const locale = detectLocaleInText(
     [ctx.rememberedDistrict, ctx.rememberedCity || ctx.city].filter(Boolean).join(' '),
@@ -441,13 +464,15 @@ export function makeConciergeGreeting(ctx: ConciergeContext): string {
   return `هلا بيك أخوي، أنا مساعد Flyway الذكي ${where}. اسألني عن أقرب صيدلية 24/7، مستشفى، كركول، وقود، أو فيزا تركيا وماليزيا — وأجاوبك من دليل المسافر مباشرة.`;
 }
 
-export function answerConcierge(text: string, ctx: ConciergeContext): ConciergeReply {
+export async function answerConcierge(text: string, ctx: ConciergeContext): Promise<ConciergeReply> {
   const trimmed = text.trim();
   const localeHit = resolveLocale(trimmed, ctx);
   const city = localeHit?.city || null;
   const cityName = localeHit?.label || city?.name || ctx.city || 'تركيا';
   const origin = originFor(localeHit, ctx);
   const cats = detectCategories(trimmed);
+  const prefer247 = /24\/7|مناوبه|مناوبة/.test(trimmed);
+  await hydrateConciergeDatabase(origin, city, cats, Boolean(localeHit?.district), prefer247);
   const locale = localePayload(localeHit, origin, cats[0] === 'police' ? 'embassy' : cats[0]);
   const knownReply = knowledgeReply(trimmed, city);
 

@@ -5,11 +5,12 @@ import { requireDatabaseUrl } from '../env.js';
 
 async function migrate() {
   requireDatabaseUrl();
-  const sqlPath = resolve(process.cwd(), 'server/db/schema.sql');
-  const sql = await readFile(sqlPath, 'utf8');
   const pool = getPool();
-  await pool.query(sql);
-  console.log('Applied GIS schema from server/db/schema.sql');
+  const schemaPath = resolve(process.cwd(), 'server/db/schema.sql');
+  const extraPath = resolve(process.cwd(), 'supabase/migrations/20260920213000_places_poi_production_layer.sql');
+  await pool.query(await readFile(schemaPath, 'utf8'));
+  await pool.query(await readFile(extraPath, 'utf8'));
+  console.log('Applied GIS schema from server/db/schema.sql and POI production layer');
 }
 
 migrate()

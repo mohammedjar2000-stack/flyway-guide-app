@@ -22,7 +22,9 @@ import {
   PLACES_UPDATED_EVENT,
   syncOsmCategory,
 } from '@/services/gisApi';
-import { bootPlaceVault, getVaultSnapshot, ingestListings, mergeIntoVault, subscribeVault } from '@/lib/placeVault';
+import { bootPlaceVault, getVaultSnapshot, ingestListings, mergeIntoVault, replaceWithDatabaseListings, subscribeVault } from '@/lib/placeVault';
+import { ISTANBUL_DATASET_VERSION } from '@/lib/datasetVersion';
+import { fetchDatasetVersion, fetchPoiCatalog, writeCachedDatasetVersion } from '@/services/poiService';
 
 interface UsePlacesQueryArgs {
   bounds: MapBounds | null;
@@ -156,9 +158,30 @@ export function usePlacesQuery({
   const verifiedRef = useRef(verifiedAll);
   verifiedRef.current = verifiedAll;
 
+  const databaseQuery = useQuery({
+    queryKey: ['places-db', ISTANBUL_DATASET_VERSION, cityKey, allTurkey ? 'all' : 'city'],
+    enabled: Boolean(cityKey),
+    staleTime: 5 * 60_000,
+    gcTime: Infinity,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const version = await fetchDatasetVersion();
+      const cityEn = cityEnRef.current && cityEnRef.current !== 'All Turkey' ? cityEnRef.current : undefined;
+      const rows = await fetchPoiCatalog({
+        city: allTurkey ? undefined : (cityEn || cityRef.current),
+        country: countryRef.current || 'تركيا',
+      });
+      writeCachedDatasetVersion(version, rows.length);
+      if (rows.length) replaceWithDatabaseListings(rows);
+      return { version, rows };
+    },
+  });
+
   const pharmacyQuery = useQuery({
     queryKey: ['places-pharmacies', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -185,7 +208,7 @@ export function usePlacesQuery({
 
   const marketsQuery = useQuery({
     queryKey: ['places-markets', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -212,7 +235,7 @@ export function usePlacesQuery({
 
   const hotelsQuery = useQuery({
     queryKey: ['places-hotels', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -239,7 +262,7 @@ export function usePlacesQuery({
 
   const telecomQuery = useQuery({
     queryKey: ['places-telecom', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -266,7 +289,7 @@ export function usePlacesQuery({
 
   const exchangeQuery = useQuery({
     queryKey: ['places-exchange', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -293,7 +316,7 @@ export function usePlacesQuery({
 
   const transportQuery = useQuery({
     queryKey: ['places-transport', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -320,7 +343,7 @@ export function usePlacesQuery({
 
   const hospitalsQuery = useQuery({
     queryKey: ['places-hospitals', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -347,7 +370,7 @@ export function usePlacesQuery({
 
   const policeQuery = useQuery({
     queryKey: ['places-police', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -374,7 +397,7 @@ export function usePlacesQuery({
 
   const fuelQuery = useQuery({
     queryKey: ['places-fuel', 'v4', cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 60 * 60_000,
     gcTime: Infinity,
     retry: 0,
@@ -386,7 +409,7 @@ export function usePlacesQuery({
 
   const bakeriesQuery = useQuery({
     queryKey: ['places-bakeries', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
@@ -423,7 +446,7 @@ export function usePlacesQuery({
 
   const query = useQuery({
     queryKey: ['places-city', `curated-v${CURATED_CATALOG_VERSION}`, cityKey, skipLiveDining ? 1 : 0],
-    enabled: Boolean(cityBounds),
+    enabled: Boolean(cityBounds) && liveOsm,
     staleTime: 15 * 60_000,
     gcTime: Infinity,
     retry: 0,
@@ -475,7 +498,8 @@ export function usePlacesQuery({
   const listingsHoldKey = useRef('');
 
   const fetching = Boolean(
-    query.isFetching
+    databaseQuery.isFetching
+    || query.isFetching
     || pharmacyQuery.isFetching
     || marketsQuery.isFetching
     || hotelsQuery.isFetching
@@ -490,6 +514,7 @@ export function usePlacesQuery({
   );
 
   const catalog = useMemo(() => {
+    const dbPlaces = databaseQuery.data?.rows ?? [];
     const live = query.data?.places ?? [];
     const pharmacies = pharmacyQuery.data ?? [];
     const markets = marketsQuery.data ?? [];
@@ -501,9 +526,11 @@ export function usePlacesQuery({
     const police = policeQuery.data ?? [];
     const fuel = fuelQuery.data ?? [];
     const bakeries = bakeriesQuery.data ?? [];
-    const airports = [...AIRPORT_SEEDS, ...(airportsQuery.data ?? [])];
+    const airports = dbPlaces.length ? (airportsQuery.data ?? []) : [...AIRPORT_SEEDS, ...(airportsQuery.data ?? [])];
+    const verified = dbPlaces.length ? [] : verifiedAll;
     const fresh = ingestListings([
-      verifiedAll,
+      dbPlaces,
+      verified,
       airports,
       hospitals,
       police,
@@ -524,7 +551,7 @@ export function usePlacesQuery({
       return next;
     }
     return catalogHold.current.length > 0 ? catalogHold.current : next;
-  }, [airportsQuery.data, bakeriesQuery.data, dbListings, exchangeQuery.data, fuelQuery.data, hospitalsQuery.data, hotelsQuery.data, marketsQuery.data, pharmacyQuery.data, policeQuery.data, query.data?.places, telecomQuery.data, transportQuery.data, vaultRev, verifiedAll]);
+  }, [airportsQuery.data, bakeriesQuery.data, databaseQuery.data, dbListings, exchangeQuery.data, fuelQuery.data, hospitalsQuery.data, hotelsQuery.data, marketsQuery.data, pharmacyQuery.data, policeQuery.data, query.data?.places, telecomQuery.data, transportQuery.data, vaultRev, verifiedAll]);
 
   const scopedTally = useMemo(
     () => tallyScopedCategoryCounts(catalog, { cityHit: resolvedCity, allTurkey }),
@@ -598,8 +625,9 @@ export function usePlacesQuery({
     error: false,
     errorMessage: null as string | null,
     tooZoomedOut: false,
-    fromFallback: false,
+    fromFallback: !databaseQuery.data?.rows?.length,
     refetch: () => {
+      void databaseQuery.refetch();
       void query.refetch();
       void pharmacyQuery.refetch();
       void marketsQuery.refetch();

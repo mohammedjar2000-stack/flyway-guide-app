@@ -15,7 +15,7 @@ export default function PlacesDrawer({ count, children, onDismiss }: PlacesDrawe
 
   return (
     <div
-      className="places-drawer pointer-events-auto flex flex-col h-full min-h-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.22)] dark:border-white/15 dark:bg-neutral-950"
+      className="on-light places-drawer pointer-events-auto flex flex-col h-full min-h-0 overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-[0_12px_40px_rgba(15,23,42,0.22)] dark:border-white/15 dark:bg-neutral-950 dark:text-white"
       data-expanded="true"
       dir="rtl"
       onWheel={stopMapZoom}

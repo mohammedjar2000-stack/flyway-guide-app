@@ -73,7 +73,7 @@ export default function ResultsBottomSheet({ count, children, onDismiss }: Resul
   return (
     <div
       ref={rootRef}
-      className={`results-sheet pointer-events-auto flex flex-col min-h-0 overflow-hidden rounded-t-3xl border border-white/70 bg-white/95 shadow-[0_-12px_40px_rgba(15,23,42,0.22)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95 ${dragH == null ? 'results-sheet-snap' : ''}`}
+      className={`on-light results-sheet pointer-events-auto flex flex-col min-h-0 overflow-hidden rounded-t-3xl border border-slate-200 bg-white text-slate-800 shadow-[0_-12px_40px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-neutral-950/95 dark:text-white ${dragH == null ? 'results-sheet-snap' : ''}`}
       data-snap={snap}
       dir="rtl"
       onWheel={stopMapZoom}

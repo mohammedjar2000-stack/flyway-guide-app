@@ -253,8 +253,8 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
     : location?.city || location?.label || 'اختر مدينة';
 
   return (
-    <div ref={rootRef} className="relative w-full isolate" dir="rtl">
-      <div className="flex items-center gap-2 rounded-[22px] bg-white/90 text-slate-900 border border-white/70 shadow-[0_10px_32px_rgba(15,23,42,0.16)] backdrop-blur-xl px-2 py-1.5 dark:bg-neutral-950/88 dark:text-white dark:border-white/10">
+    <div ref={rootRef} className="on-light relative w-full isolate text-slate-800" dir="rtl">
+      <div className="flex items-center gap-2 rounded-[22px] bg-white text-slate-800 border border-slate-200 shadow-[0_10px_32px_rgba(15,23,42,0.16)] px-2 py-1.5">
         <button
           type="button"
           onClick={() => {
@@ -262,12 +262,12 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
             setOpen(false);
             setQuery('');
           }}
-          className="shrink-0 max-w-[38%] sm:max-w-[30%] inline-flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-2 text-[12px] font-semibold cursor-pointer dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/10"
+          className="shrink-0 max-w-[38%] sm:max-w-[30%] inline-flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-2 text-[12px] font-semibold text-slate-800 cursor-pointer"
           aria-expanded={countryMenu}
         >
           <Landmark className="w-3.5 h-3.5 text-brand-600 dark:text-brand-300 shrink-0" />
-          <span className="truncate">{country}</span>
-          <ChevronDown className="w-3.5 h-3.5 opacity-70 shrink-0" />
+          <span className="truncate text-slate-800">{country}</span>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
         </button>
 
         <div className="relative flex-1 min-w-0">
@@ -287,7 +287,7 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
             }}
             placeholder={label}
             autoComplete="off"
-            className="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-xl pr-9 pl-8 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none dark:bg-white/10 dark:hover:bg-white/15 dark:focus:bg-white/15 dark:border-white/10 dark:text-white dark:placeholder:text-zinc-400"
+            className="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-xl pr-9 pl-8 py-2 text-[13px] font-medium text-slate-900 caret-slate-900 placeholder:text-slate-500 outline-none"
             aria-label="بحث الدولة والمدينة"
             aria-autocomplete="list"
             aria-expanded={open && canSuggest}
@@ -312,14 +312,14 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
       </div>
 
       {countryMenu && (
-        <div className="absolute top-[calc(100%+6px)] right-0 z-[80] w-[min(100%,280px)] max-h-80 overflow-hidden rounded-2xl bg-white/95 border border-slate-200 shadow-2xl backdrop-blur-xl dark:bg-neutral-950/95 dark:border-white/10">
+        <div className="on-light absolute top-[calc(100%+6px)] right-0 z-[80] w-[min(100%,280px)] max-h-80 overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-2xl text-slate-800 dark:bg-neutral-950/95 dark:border-white/10 dark:text-white">
           <div className="p-2 border-b border-slate-100 dark:border-white/10">
             <input
               ref={countryFilterRef}
               value={countryFilter}
               onChange={(e) => setCountryFilter(e.target.value)}
               placeholder="ابحث عن دولة..."
-              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-[13px] outline-none dark:bg-white/10 dark:border-white/10 dark:text-white"
+              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-[13px] font-medium text-slate-900 caret-slate-900 placeholder:text-slate-500 outline-none dark:bg-white/10 dark:border-white/10 dark:text-white dark:caret-white"
               aria-label="بحث الدولة"
             />
           </div>
@@ -348,7 +348,7 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
       )}
 
       {open && canSuggest && (
-        <div className="absolute top-[calc(100%+6px)] inset-x-0 z-[80] max-h-[min(48vh,360px)] overflow-y-auto rounded-2xl bg-white/95 border border-slate-200 shadow-2xl p-2 backdrop-blur-xl dark:bg-neutral-950/95 dark:border-white/10">
+        <div className="on-light absolute top-[calc(100%+6px)] inset-x-0 z-[80] max-h-[min(48vh,360px)] overflow-y-auto rounded-2xl bg-white border border-slate-200 shadow-2xl p-2 text-slate-800 dark:bg-neutral-950/95 dark:border-white/10 dark:text-white">
           {isTurkeyCountry(country) && queryMatchScore(typed, 'تركيا', 'turkey', 'عموم تركيا') > 0 && (
             <button
               type="button"

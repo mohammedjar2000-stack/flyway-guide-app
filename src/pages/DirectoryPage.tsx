@@ -30,7 +30,8 @@ import { lookupCity } from '@/lib/cityCoordinates';
 import { FETCH_RADIUS_METERS } from '@/lib/mapConfig';
 import { listingMatchesProvince, isAllTurkeyCity, isTurkeyCountry } from '@/lib/turkeyScope';
 import { appleMapsDirUrl, googleMapsSearchUrl, wazeNavUrl } from '@/lib/navLinks';
-import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, subscribeVault } from '@/lib/placeVault';
+import { fetchPoiCatalog } from '@/services/poiService';
+import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, replaceWithDatabaseListings, subscribeVault } from '@/lib/placeVault';
 
 const iconMap: Record<string, typeof Hotel> = {
   Hotel, UtensilsCrossed, Stethoscope, Pill, ShoppingBag, Camera,
@@ -74,6 +75,15 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
       || isTurkeyCountry(cityHit.countryEn)
       || isAllTurkeyCity(cityHit);
     (async () => {
+      const dbRows = await fetchPoiCatalog({
+        city: isAllTurkeyCity(cityHit) ? undefined : cityHit?.en,
+        country: cityHit?.country || 'تركيا',
+      }).catch(() => [] as DirectoryListing[]);
+      if (cancelled) return;
+      if (dbRows.length) {
+        replaceWithDatabaseListings(dbRows);
+        return;
+      }
       mergeIntoVault(getAllVerifiedPlaces(), { fromCache: true });
       if (turkey) return;
       const cityName = cityHit?.en || '';
@@ -98,19 +108,21 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
           mergeIntoVault(gisPlacesToListings(extra));
         }).catch(() => null);
       }
-      const supabasePromise = supabase.from('directory_listings').select('*').order('sort_order')
-        .then(({ data }) => (data ?? []) as DirectoryListing[])
-        .catch(() => [] as DirectoryListing[]);
-      const supabaseTimer = new Promise<DirectoryListing[]>((resolve) => {
-        window.setTimeout(() => resolve([]), 2500);
-      });
-      const [dbRows, gisPlaces, ...liveBuckets] = await Promise.all([
-        Promise.race([supabasePromise, supabaseTimer]),
+      const directoryRows = await Promise.race([
+        Promise.resolve(
+          supabase.from('directory_listings').select('*').order('sort_order')
+            .then(({ data }) => (data ?? []) as DirectoryListing[]),
+        ).catch(() => [] as DirectoryListing[]),
+        new Promise<DirectoryListing[]>((resolve) => {
+          window.setTimeout(() => resolve([]), 2500);
+        }),
+      ]);
+      const [gisPlaces, ...liveBuckets] = await Promise.all([
         fetchPlaceCatalog({ limit: 5000 }),
         ...denseCats.map((category) => fetchPlacesFromOverpass(origin.lat, origin.lng, category, FETCH_RADIUS_METERS).catch(() => [] as DirectoryListing[])),
       ]);
       if (cancelled) return;
-      mergeIntoVault(dbRows);
+      mergeIntoVault(directoryRows);
       mergeIntoVault(gisPlacesToListings(gisPlaces));
       for (const bucket of liveBuckets) {
         if (bucket.length) {

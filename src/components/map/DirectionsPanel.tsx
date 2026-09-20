@@ -184,7 +184,7 @@ export default function DirectionsPanel({
 
   return (
     <div
-      className="gmaps-directions flex flex-col h-full min-h-0 rounded-2xl border border-[#dadce0] dark:border-white/10 bg-white dark:bg-[#292a2d] shadow-[0_12px_40px_rgba(0,0,0,0.28)] overflow-hidden"
+      className="on-light gmaps-directions flex flex-col h-full min-h-0 rounded-2xl border border-[#dadce0] dark:border-white/10 bg-white dark:bg-[#292a2d] text-slate-800 dark:text-white shadow-[0_12px_40px_rgba(0,0,0,0.28)] overflow-hidden"
       dir="rtl"
     >
       <div className="flex items-center gap-1 px-2 pt-2 pb-0 border-b border-[#dadce0]">

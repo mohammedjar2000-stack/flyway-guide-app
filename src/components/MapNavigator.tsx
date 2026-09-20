@@ -28,8 +28,9 @@ import CityPickerBar from '@/components/map/CityPickerBar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { lookupCity } from '@/lib/cityCoordinates';
 import { isAllTurkeyCity } from '@/lib/turkeyScope';
+import { fetchPoiCatalog } from '@/services/poiService';
 import { fetchPlaceCatalog, gisPlacesToListings } from '@/services/gisApi';
-import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, subscribeVault } from '@/lib/placeVault';
+import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, replaceWithDatabaseListings, subscribeVault } from '@/lib/placeVault';
 
 interface MapNavigatorProps {
   searchLocation?: AppLocation | null;
@@ -95,16 +96,21 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     void bootPlaceVault();
     setDbListings(getVaultSnapshot());
     (async () => {
-      const supabasePromise = supabase.from('directory_listings').select('*').order('sort_order').abortSignal(ctrl.signal)
-        .then(({ data }) => (data ?? []) as DirectoryListing[])
-        .catch(() => [] as DirectoryListing[]);
-      const [rows, gisRows] = await Promise.all([
-        supabasePromise,
+      const [poiRows, directoryRows, gisRows] = await Promise.all([
+        fetchPoiCatalog({
+          city: cityEn,
+          country: searchLocation?.country || 'تركيا',
+        }).catch(() => [] as DirectoryListing[]),
+        Promise.resolve(
+          supabase.from('directory_listings').select('*').order('sort_order').abortSignal(ctrl.signal)
+            .then(({ data }) => (data ?? []) as DirectoryListing[]),
+        ).catch(() => [] as DirectoryListing[]),
         fetchPlaceCatalog({ city: cityEn, limit: 5000 }).catch(() => []),
       ]);
       if (cancelled) return;
-      const incoming = [...gisPlacesToListings(gisRows), ...rows];
-      if (incoming.length) mergeIntoVault(incoming);
+      if (poiRows.length) replaceWithDatabaseListings(poiRows);
+      const incoming = [...gisPlacesToListings(gisRows), ...directoryRows];
+      if (incoming.length) mergeIntoVault(incoming, { fromCache: true });
       setDbListings(getVaultSnapshot());
       setDbLoading(false);
     })();
@@ -622,14 +628,14 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
           className={`map-overlay-filter pointer-events-auto w-12 h-12 rounded-2xl border shadow-xl flex items-center justify-center cursor-pointer ${
             filtersOpen || categoryFilterActive
               ? 'bg-brand-400 border-brand-300 text-neutral-950'
-              : 'bg-white/95 border-white/80 text-neutral-800 dark:bg-neutral-950/90 dark:border-white/10 dark:text-white'
+              : 'on-light bg-white border-slate-200 text-slate-800 dark:bg-neutral-950/90 dark:border-white/10 dark:text-white'
           }`}
           aria-label="التصنيفات"
           aria-pressed={filtersOpen || categoryFilterActive}
         >
           <SlidersHorizontal className="w-5 h-5" />
         </button>
-        <div className="map-overlay-search pointer-events-auto" dir="rtl">
+        <div className="on-light map-overlay-search pointer-events-auto" dir="rtl">
           <CityPickerBar location={searchLocation} onSelect={handleCitySelect} />
         </div>
         {(tooZoomedOut || (loading && listings.length === 0) || error || fromFallback || (locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed)) && (
@@ -662,7 +668,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
 
       {!navigating && (
         <div className="map-overlay-dock absolute z-[55] pointer-events-none">
-          <div dir="ltr" className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-black/5 bg-white/95 shadow-[0_10px_28px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-neutral-900/95">
+          <div dir="ltr" className="on-light pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-[0_10px_28px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-neutral-900/95 dark:text-white">
             <button
               type="button"
               onClick={() => mapCommands.current?.zoomIn()}

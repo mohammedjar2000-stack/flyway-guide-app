@@ -97,25 +97,26 @@ export default function ChatWidget({
     else if (mentioned?.city) setRememberedDistrict(null);
 
     window.setTimeout(() => {
-      const reply = answerConcierge(text, {
+      void answerConcierge(text, {
         city,
         country,
         lat,
         lng,
         rememberedCity: mentioned?.city.name || rememberedCity || city,
         rememberedDistrict: mentioned?.districtName || (mentioned?.city ? null : rememberedDistrict),
-      });
-      if (reply.locale && (reply.locale.district || reply.places.length > 0 || reply.actions.some((a) => a.page === 'navigator'))) {
-        onFocusLocale?.(reply.locale);
-      }
-      setMessages((prev) => [...prev, {
-        id: Date.now() + 1,
-        text: reply.text,
-        sender: 'bot',
-        places: reply.places,
-        actions: reply.actions,
-      }]);
-      setBusy(false);
+      }).then((reply) => {
+        if (reply.locale && (reply.locale.district || reply.places.length > 0 || reply.actions.some((a) => a.page === 'navigator'))) {
+          onFocusLocale?.(reply.locale);
+        }
+        setMessages((prev) => [...prev, {
+          id: Date.now() + 1,
+          text: reply.text,
+          sender: 'bot',
+          places: reply.places,
+          actions: reply.actions,
+        }]);
+        setBusy(false);
+      }).catch(() => setBusy(false));
     }, 280);
   };
 

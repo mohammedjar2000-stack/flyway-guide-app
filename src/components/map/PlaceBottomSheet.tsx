@@ -98,7 +98,7 @@ export default function PlaceBottomSheet({
   return (
     <div className="fixed inset-x-0 bottom-0 z-[80] pointer-events-none px-3 pb-20 md:px-4 md:pb-4">
       <div
-        className="place-sheet pointer-events-auto mx-auto max-w-xl max-h-[82vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.28)] animate-slide-up dark:border-white/10 dark:bg-neutral-950 dark:shadow-[0_24px_60px_rgba(0,0,0,0.55)]"
+        className="on-light place-sheet pointer-events-auto mx-auto max-w-xl max-h-[82vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-[0_24px_60px_rgba(15,23,42,0.28)] animate-slide-up dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:shadow-[0_24px_60px_rgba(0,0,0,0.55)]"
         dir="rtl"
       >
         <div className="relative h-44 md:h-56 overflow-hidden bg-slate-100">

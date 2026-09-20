@@ -39,13 +39,13 @@ export default function CategoryFilterSheet({
         aria-label="إغلاق التصنيفات"
         onClick={onClose}
       />
-      <aside className="pointer-events-auto absolute top-0 bottom-0 left-0 w-[min(20.5rem,88vw)] flex flex-col bg-white shadow-[12px_0_40px_rgba(15,23,42,0.22)] border-r border-slate-200 dark:bg-neutral-950 dark:border-white/10">
-        <div className="shrink-0 flex items-center gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 border-b border-slate-100 dark:border-white/10">
-          <h2 className="flex-1 text-right text-base font-bold text-neutral-950 dark:text-white">التصنيفات والخدمات</h2>
+      <aside className="on-light pointer-events-auto absolute top-0 bottom-0 left-0 w-[min(20.5rem,88vw)] flex flex-col bg-white text-slate-800 shadow-[12px_0_40px_rgba(15,23,42,0.22)] border-r border-slate-200">
+        <div className="shrink-0 flex items-center gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 border-b border-slate-100">
+          <h2 className="flex-1 text-right text-base font-bold text-slate-900">التصنيفات والخدمات</h2>
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-slate-100 text-neutral-800 hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 flex items-center justify-center cursor-pointer"
+            className="w-9 h-9 rounded-full bg-slate-100 text-slate-800 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
             aria-label="إغلاق"
           >
             <X className="w-4 h-4" />

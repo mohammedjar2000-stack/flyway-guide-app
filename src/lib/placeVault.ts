@@ -228,6 +228,29 @@ export function ingestListings(buckets: DirectoryListing[][], opts?: { fromCache
   return accepted;
 }
 
+export function replaceWithDatabaseListings(rows: DirectoryListing[]): number {
+  const incoming = ingestListings([rows], { fromCache: true });
+  if (incoming.length === 0) return 0;
+  const keepIds = new Set(incoming.map((row) => row.id));
+  const removed: string[] = [];
+  for (const row of incoming) {
+    for (const existing of [...byId.values()]) {
+      if (keepIds.has(existing.id)) continue;
+      if (!isNearDuplicate(existing, row)) continue;
+      byId.delete(existing.id);
+      removed.push(existing.id);
+    }
+    upsertMemory(row);
+  }
+  if (removed.length) {
+    void openDb().then((db) => { if (db) void deleteMany(db, removed); });
+  }
+  notify();
+  schedulePersist();
+  writeLocalBackup(getVaultSnapshot());
+  return incoming.length;
+}
+
 export function mergeIntoVault(rows: DirectoryListing[], opts?: { fromCache?: boolean; persist?: boolean }): number {
   const prepared = opts?.fromCache
     ? rows.filter(isStoredListing)
@@ -406,9 +429,10 @@ function bindLifecycle() {
   if (navigator.storage?.persist) void navigator.storage.persist();
 }
 
-function seedModules(force = false) {
-  if (seeded && !force) return;
+function seedModules() {
+  if (seeded) return;
   seeded = true;
+  if (byId.size > 0) return;
   const seeds = getAllVerifiedPlaces();
   for (const item of ingestListings([seeds], { fromCache: true })) upsertMemory(item);
 }
@@ -416,7 +440,6 @@ function seedModules(force = false) {
 export async function bootPlaceVault(): Promise<void> {
   if (bootPromise) return bootPromise;
   bootPromise = (async () => {
-    seedModules();
     bindLifecycle();
     const [db, backup] = await Promise.all([openDb(), Promise.resolve(readLocalBackup())]);
     const idbRows = db
@@ -426,7 +449,7 @@ export async function bootPlaceVault(): Promise<void> {
     for (const item of incoming.filter(isStoredListing)) {
       upsertMemory(item);
     }
-    seedModules(true);
+    seedModules();
     const dropped = sanitizeCatalogInMemory();
     if (dropped.length && db) await deleteMany(db, dropped);
     if (dropped.length) writeLocalBackup(getVaultSnapshot());

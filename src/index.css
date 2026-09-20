@@ -507,6 +507,56 @@ html.light .on-dark textarea::placeholder {
   color: rgb(255 255 255 / 0.45);
 }
 
+/* Light cards on the map: do not inherit overlay white ink (dark:text-white class names match [class*="text-white"]). */
+.on-dark .on-light {
+  color: #1e293b;
+}
+
+.on-dark .on-light,
+.on-dark .on-light .text-white,
+.on-dark .on-light [class*="text-white"],
+.on-dark .on-light [class*="text-zinc-1"],
+.on-dark .on-light [class*="text-zinc-2"],
+.on-dark .on-light [class*="text-zinc-3"] {
+  color: #1e293b;
+}
+
+.on-dark .on-light [class*="text-slate-4"],
+.on-dark .on-light [class*="text-slate-5"],
+.on-dark .on-light [class*="text-zinc-4"] {
+  color: #64748b;
+}
+
+.on-dark .on-light [class*="text-slate-6"],
+.on-dark .on-light [class*="text-slate-7"] {
+  color: #334155;
+}
+
+.on-dark .on-light [class*="text-slate-8"],
+.on-dark .on-light [class*="text-slate-9"],
+.on-dark .on-light [class*="text-neutral-8"],
+.on-dark .on-light [class*="text-neutral-9"],
+.on-dark .on-light [class*="text-gray-8"],
+.on-dark .on-light [class*="text-gray-9"] {
+  color: #0f172a;
+}
+
+.on-dark .on-light input,
+.on-dark .on-light textarea {
+  color: #0f172a;
+  caret-color: #0f172a;
+}
+
+.on-dark .on-light input::placeholder,
+.on-dark .on-light textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1;
+}
+
+.on-dark .on-light .hover\:text-white:hover {
+  color: #0f172a;
+}
+
 html.light .on-dark .gmaps-surface {
   color: #202124;
 }

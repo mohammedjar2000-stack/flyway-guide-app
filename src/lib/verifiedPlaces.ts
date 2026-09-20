@@ -603,6 +603,14 @@ export function getVerifiedPlaces(options: {
     .filter((item): item is DirectoryListing => Boolean(item));
 }
 
+export function listVerifiedSeedsByCity(): Array<{ cityKey: string; seed: VerifiedPlace }> {
+  const out: Array<{ cityKey: string; seed: VerifiedPlace }> = [];
+  for (const [cityKey, seeds] of Object.entries(VERIFIED_BY_CITY)) {
+    for (const seed of seeds) out.push({ cityKey, seed });
+  }
+  return out;
+}
+
 export function getAllVerifiedPlaces(): DirectoryListing[] {
   const out: DirectoryListing[] = [];
   for (const [key, seeds] of Object.entries(VERIFIED_BY_CITY)) {
