@@ -13,7 +13,7 @@ import {
   Shield,
   Unplug,
 } from 'lucide-react';
-import { adminPinConfigured, isAdminUnlocked, lockAdmin, unlockAdmin } from '@/lib/adminGate';
+import { isAdminUnlocked, lockAdmin, unlockAdmin } from '@/lib/adminGate';
 import {
   probeAllApis,
   probeGisBackend,
@@ -78,20 +78,17 @@ function formatTime(value: number | null) {
 function AdminGate({ onUnlocked }: { onUnlocked: () => void }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
-  const ready = adminPinConfigured();
+
+  const admit = (value: string): boolean => {
+    if (!unlockAdmin(value)) return false;
+    setError('');
+    onUnlocked();
+    return true;
+  };
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!ready) {
-      setError('عيّن VITE_ADMIN_PIN في ملف البيئة لتفعيل اللوحة.');
-      return;
-    }
-    if (unlockAdmin(pin)) {
-      setError('');
-      onUnlocked();
-      return;
-    }
-    setError('رمز الدخول غير صحيح.');
+    if (!admit(pin)) setError('رمز الدخول غير صحيح.');
   };
 
   return (
@@ -108,10 +105,16 @@ function AdminGate({ onUnlocked }: { onUnlocked: () => void }) {
           <input
             type="password"
             value={pin}
-            onChange={(event) => setPin(event.target.value)}
+            autoFocus
             autoComplete="current-password"
             placeholder="رمز الدخول"
             className="w-full rounded-xl border border-neutral-300 dark:border-white/15 bg-white dark:bg-black/30 px-4 py-3 text-neutral-900 dark:text-white placeholder:text-neutral-400"
+            onChange={(event) => {
+              const next = event.target.value;
+              setPin(next);
+              setError('');
+              admit(next);
+            }}
           />
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button
