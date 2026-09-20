@@ -2,6 +2,37 @@ import { haversineMeters } from '@/lib/coordIntegrity';
 import { TURKEY_BBOX } from '@/lib/turkeyScope';
 import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
 
+export const HOTEL_API_SOURCE_TAG = 'live-hotel-api';
+export const HOTEL_API_ID_PREFIX = 'hotel-api-';
+
+export function isTrustedHotelApiListing(item: {
+  id?: string;
+  category_key?: string;
+  tags?: string[] | null;
+}): boolean {
+  if (item.category_key && item.category_key !== 'hotels') return false;
+  if (typeof item.id === 'string' && item.id.startsWith(HOTEL_API_ID_PREFIX)) return true;
+  return Array.isArray(item.tags) && item.tags.includes(HOTEL_API_SOURCE_TAG);
+}
+
+export function listingPassesTurkeyPinGuard(item: {
+  id?: string;
+  lat: number;
+  lng: number;
+  category_key: string;
+  name?: string;
+  description?: string;
+  tags?: string[] | null;
+}): boolean {
+  if (isTrustedHotelApiListing(item)) return true;
+  return isCuratedTurkeyPin(
+    item.lat,
+    item.lng,
+    item.category_key,
+    `${item.name || ''} ${item.description || ''}`,
+  );
+}
+
 /** Bump with hub catalog so vault/query caches drop contaminated rows. */
 export const CURATED_CATALOG_VERSION = 2;
 
@@ -23,6 +54,10 @@ export function isTurkeyCatalogCoordinate(lat: number, lng: number): boolean {
 
 export function registerCuratedTurkeyPins(rows: CuratedPin[]): void {
   pins.length = 0;
+  appendCuratedTurkeyPins(rows);
+}
+
+export function appendCuratedTurkeyPins(rows: CuratedPin[]): void {
   for (const row of rows) {
     if (!Number.isFinite(row.lat) || !Number.isFinite(row.lng) || !row.category_key) continue;
     pins.push({

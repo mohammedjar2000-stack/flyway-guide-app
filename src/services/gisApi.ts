@@ -287,7 +287,9 @@ export async function ingestMappedPlaces(places: DirectoryListing[]): Promise<Re
       city: known?.en || inferredEn || place.city || '',
       country: known?.countryEn || place.country_name || 'Turkey',
       countryCode: known?.countryCode || 'TR',
-      source: place.id.startsWith('osm-') || place.id.startsWith('gis-') ? 'OpenStreetMap' : 'Flyway',
+      source: place.id.startsWith('hotel-api-')
+        ? 'HotelAPI'
+        : place.id.startsWith('osm-') || place.id.startsWith('gis-') ? 'OpenStreetMap' : 'Flyway',
       image: gallery[0] || place.image,
       images: gallery.length ? gallery : place.images,
       website: place.website,

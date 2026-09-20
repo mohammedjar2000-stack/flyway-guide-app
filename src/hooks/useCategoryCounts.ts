@@ -5,7 +5,7 @@ import { lookupCity, type CityCoordinate } from '@/lib/cityCoordinates';
 import { canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePrecision';
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
 import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
-import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
+import { listingPassesTurkeyPinGuard } from '@/lib/turkeyCuratedGuard';
 import { isAllTurkeyCity, isTurkeyCountry, listingMatchesProvince } from '@/lib/turkeyScope';
 import { bootPlaceVault, getVaultRevision, getVaultSnapshot, subscribeVault } from '@/lib/placeVault';
 
@@ -75,7 +75,7 @@ export function tallyScopedCategoryCounts(
     const categoryKey = canonicalFuelBakeryKey(item);
     const hay = `${item.name || ''} ${(item as DirectoryListing).description || ''}`;
     if (categoryKey === 'fuel' && (!listingMatchesCategory(item, 'fuel') || !isFuelCoordinateClean(item.lat, item.lng) || !isCuratedTurkeyFuelPin(item.lat, item.lng, hay))) continue;
-    if (!isCuratedTurkeyPin(item.lat, item.lng, categoryKey, hay)) continue;
+    if (!listingPassesTurkeyPinGuard({ ...item, category_key: categoryKey, description: (item as DirectoryListing).description })) continue;
     const key = listingDedupeKey({ ...item, category_key: categoryKey });
     if (seen.has(key)) continue;
     seen.add(key);

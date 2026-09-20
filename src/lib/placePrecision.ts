@@ -2,7 +2,7 @@ import type { DirectoryListing } from '@/types';
 import { validateCoordinates } from '@/lib/coordIntegrity';
 import { isForbiddenFuelVenue, isFuelCoordinateClean } from '@/lib/fuelGuard';
 import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
-import { isCuratedTurkeyPin, isTurkeyCatalogCoordinate } from '@/lib/turkeyCuratedGuard';
+import { isCuratedTurkeyPin, isTrustedHotelApiListing, isTurkeyCatalogCoordinate } from '@/lib/turkeyCuratedGuard';
 
 export function sanitizePin(lat: number, lng: number): { lat: number; lng: number } | null {
   const la = Number(lat);
@@ -230,7 +230,10 @@ export function pinListing(place: DirectoryListing): DirectoryListing | null {
     if (!isFuelCoordinateClean(pin.lat, pin.lng)) return null;
     if (!isCuratedTurkeyFuelPin(pin.lat, pin.lng, venueHay(normalized))) return null;
   } else if (isTurkeyCatalogCoordinate(pin.lat, pin.lng)) {
-    if (!isCuratedTurkeyPin(pin.lat, pin.lng, normalized.category_key, venueHay(normalized))) return null;
+    if (
+      !isTrustedHotelApiListing(normalized)
+      && !isCuratedTurkeyPin(pin.lat, pin.lng, normalized.category_key, venueHay(normalized))
+    ) return null;
   }
   const verdict = validateCoordinates({
     lat: pin.lat,

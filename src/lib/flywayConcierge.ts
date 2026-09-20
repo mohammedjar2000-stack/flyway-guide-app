@@ -6,7 +6,7 @@ import { listingMatchesProvince } from '@/lib/turkeyScope';
 import { canonicalFuelBakeryKey, listingMatchesCategory, sanitizePin } from '@/lib/placePrecision';
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
 import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
-import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
+import { listingPassesTurkeyPinGuard } from '@/lib/turkeyCuratedGuard';
 import { parseHours } from '@/lib/hours';
 import { IRAQI_MISSIONS, type IraqiMission } from '@/lib/iraqiMissions';
 import { getVaultSnapshot, replaceWithDatabaseListings } from '@/lib/placeVault';
@@ -184,8 +184,7 @@ function nearestInCategory(
 ): ConciergePlace[] {
   const matched = items.filter((item) => {
     if (category === 'embassy' && item.category_key !== 'embassy' && item.category_key !== 'police') return false;
-    const hay = `${item.name} ${item.description || ''}`;
-    if (!isCuratedTurkeyPin(item.lat, item.lng, item.category_key, hay)) return false;
+    if (!listingPassesTurkeyPinGuard(item)) return false;
     if (category === 'fuel') {
       return canonicalFuelBakeryKey(item) === 'fuel'
         && listingMatchesCategory(item, 'fuel')

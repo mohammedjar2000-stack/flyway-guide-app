@@ -8,7 +8,8 @@ import { canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePreci
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
 import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
 import { isAllTurkeyCity, isTurkeyCountry, listingMatchesProvince } from '@/lib/turkeyScope';
-import { CURATED_CATALOG_VERSION, isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
+import { CURATED_CATALOG_VERSION, listingPassesTurkeyPinGuard } from '@/lib/turkeyCuratedGuard';
+import { fetchTurkeyHotels, peekTurkeyHotelCache } from '@/services/hotelApi';
 import { civicListRank } from '@/lib/civicRank';
 import { getVerifiedPlaces } from '@/lib/verifiedPlaces';
 import { turkeyAirportListings } from '@/lib/turkeyAirports';
@@ -81,7 +82,7 @@ function matchesSelectedCategory(item: DirectoryListing, categories: string[]) {
   const key = canonicalFuelBakeryKey(item);
   const hay = `${item.name || ''} ${item.description || ''}`;
   if (key === 'fuel' && (!listingMatchesCategory(item, 'fuel') || !isFuelCoordinateClean(item.lat, item.lng) || !isCuratedTurkeyFuelPin(item.lat, item.lng, hay))) return false;
-  if (!isCuratedTurkeyPin(item.lat, item.lng, key, hay)) return false;
+  if (!listingPassesTurkeyPinGuard({ ...item, category_key: key })) return false;
   if (categories.includes(key)) return true;
   if ((key === 'police' || item.category_key === 'police') && categories.includes('embassy')) return true;
   return false;
@@ -121,7 +122,11 @@ export function usePlacesQuery({
   );
   const cityKey = (resolvedCity?.en || locationCity || locationCountry || '').trim();
   const allTurkey = isAllTurkeyCity(resolvedCity) || isAllTurkeyCity(locationCity);
+  const turkeyStay = allTurkey || isTurkeyCountry(resolvedCity?.country || locationCountry);
   const liveOsm = !allTurkey && !isTurkeyCountry(resolvedCity?.country || locationCountry);
+  const nationwideHotels = turkeyStay
+    && categories.length > 0
+    && categories.every((key) => key === 'hotels');
 
   const originRef = useRef(origin);
   originRef.current = origin;
@@ -131,6 +136,8 @@ export function usePlacesQuery({
   cityEnRef.current = resolvedCity?.en || '';
   const liveOsmRef = useRef(liveOsm);
   liveOsmRef.current = liveOsm;
+  const turkeyStayRef = useRef(turkeyStay);
+  turkeyStayRef.current = turkeyStay;
   const countryRef = useRef(resolvedCity?.country || locationCountry);
   countryRef.current = resolvedCity?.country || locationCountry;
 
@@ -234,15 +241,24 @@ export function usePlacesQuery({
   });
 
   const hotelsQuery = useQuery({
-    queryKey: ['places-hotels', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
-    enabled: Boolean(cityBounds) && liveOsm,
-    staleTime: 30_000,
+    queryKey: turkeyStay
+      ? ['places-hotels', 'api-v1', 'turkey']
+      : ['places-hotels', `curated-v${CURATED_CATALOG_VERSION}`, cityKey],
+    enabled: Boolean(cityBounds) && (liveOsm || turkeyStay),
+    staleTime: turkeyStay ? 30 * 60_000 : 30_000,
     gcTime: Infinity,
     retry: 1,
     refetchOnMount: true,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
+    initialData: turkeyStay ? () => {
+      const cached = peekTurkeyHotelCache();
+      return cached.length ? cached : undefined;
+    } : undefined,
     queryFn: async () => {
+      if (turkeyStayRef.current) {
+        return fetchTurkeyHotels();
+      }
       const here = originRef.current;
       const rows = await fetchCityCategory('hotels', liveOsmRef.current ? here : null, cityEnRef.current, liveOsmRef.current);
       if (here && liveOsmRef.current) {
@@ -573,7 +589,7 @@ export function usePlacesQuery({
       const nearOrigin = origin
         ? haversineKm(origin.lat, origin.lng, item.lat, item.lng) <= 80
         : false;
-      if (!listingMatchesProvince(item, resolvedCity, allTurkey) && !nearOrigin) return false;
+      if (!nationwideHotels && !listingMatchesProvince(item, resolvedCity, allTurkey) && !nearOrigin) return false;
       if (!matchesSelectedCategory(item, categories)) return false;
       const nameKey = listingDedupeKey(item);
       if (seenName.has(nameKey)) return false;
@@ -615,7 +631,7 @@ export function usePlacesQuery({
       return listingsHold.current;
     }
     return sorted;
-  }, [catalog, categories, search, origin, fetching, resolvedCity, allTurkey, locationDistrict]);
+  }, [catalog, categories, search, origin, fetching, resolvedCity, allTurkey, nationwideHotels, locationDistrict, cityKey]);
 
   return {
     listings,

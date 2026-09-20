@@ -7,6 +7,7 @@ import { filePlaceCount, fileAllPlaces, fileReplacePlaces } from './fileStore.js
 import { importIstanbulBakeries, importIstanbulExchange, importIstanbulFuel, importIstanbulHospitals, importIstanbulHotels, importIstanbulMarkets, importIstanbulPolice, importIstanbulTelecom, importIstanbulTransport, importOsmCategory } from './osmImport.js';
 import { seedBundledIstanbulPharmacies } from './seedPlaces.js';
 import { placesRouter } from './routes/places.js';
+import { hotelsRouter } from './routes/hotels.js';
 import { scrubStoredPlaces } from './coordLocks.js';
 
 const app = express();
@@ -26,10 +27,12 @@ app.get('/api/health', async (_req, res) => {
     store: pg ? 'postgis' : 'local',
     placeCount: pg ? total : filePlaceCount(),
     geoapifyConfigured: Boolean(env.geoapifyApiKey),
+    googlePlacesConfigured: Boolean(env.googlePlacesApiKey),
   });
 });
 
 app.use('/api/places', placesRouter);
+app.use('/api/hotels', hotelsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'not found' });

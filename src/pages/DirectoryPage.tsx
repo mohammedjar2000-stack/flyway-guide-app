@@ -10,7 +10,7 @@ import { CATEGORIES } from '@/types';
 import { pinQuery, sanitizePin, canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePrecision';
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
 import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
-import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
+import { listingPassesTurkeyPinGuard } from '@/lib/turkeyCuratedGuard';
 import { getAllVerifiedPlaces } from '@/lib/verifiedPlaces';
 import FlywayBookButton from '@/components/map/FlywayBookButton';
 import PlaceHoverCard from '@/components/map/PlaceHoverCard';
@@ -30,6 +30,7 @@ import { lookupCity } from '@/lib/cityCoordinates';
 import { FETCH_RADIUS_METERS } from '@/lib/mapConfig';
 import { listingMatchesProvince, isAllTurkeyCity, isTurkeyCountry } from '@/lib/turkeyScope';
 import { appleMapsDirUrl, googleMapsSearchUrl, wazeNavUrl } from '@/lib/navLinks';
+import { fetchTurkeyHotels } from '@/services/hotelApi';
 import { fetchPoiCatalog } from '@/services/poiService';
 import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, replaceWithDatabaseListings, subscribeVault } from '@/lib/placeVault';
 
@@ -82,10 +83,14 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
       if (cancelled) return;
       if (dbRows.length) {
         replaceWithDatabaseListings(dbRows);
+      } else {
+        mergeIntoVault(getAllVerifiedPlaces(), { fromCache: true });
+      }
+      if (turkey) {
+        const hotels = await fetchTurkeyHotels().catch(() => [] as DirectoryListing[]);
+        if (!cancelled && hotels.length) mergeIntoVault(hotels);
         return;
       }
-      mergeIntoVault(getAllVerifiedPlaces(), { fromCache: true });
-      if (turkey) return;
       const cityName = cityHit?.en || '';
       void ingestMappedPlaces(getVaultSnapshot()).catch(() => null);
       const denseCats = ['pharmacies', 'markets', 'hotels', 'telecom', 'exchange', 'transport', 'hospitals', 'police', 'bakeries', 'restaurants', 'mosques', 'nightlife', 'salons'] as const;
@@ -142,19 +147,26 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
   const cityHit = lookupCity(locationFilter?.city);
   const allTurkey = isAllTurkeyCity(locationFilter?.city)
     || (!cityHit && isTurkeyCountry(locationFilter?.country));
+  const turkeyStay = allTurkey
+    || isTurkeyCountry(locationFilter?.country)
+    || isTurkeyCountry(cityHit?.country)
+    || isTurkeyCountry(cityHit?.countryEn);
+  const nationwideHotels = turkeyStay && activeCategory === 'hotels';
   const filteredHold = useRef<DirectoryListing[]>([]);
   const filtered = useMemo(() => {
     const seen = new Set<string>();
     const next = listings.filter((l) => {
-      if (allTurkey) {
-        if (!listingMatchesProvince(l, cityHit, true)) return false;
-      } else if (cityHit && !listingMatchesProvince(l, cityHit, false)) {
-        return false;
+      if (!nationwideHotels) {
+        if (allTurkey) {
+          if (!listingMatchesProvince(l, cityHit, true)) return false;
+        } else if (cityHit && !listingMatchesProvince(l, cityHit, false)) {
+          return false;
+        }
       }
       if (canonicalFuelBakeryKey(l) !== activeCategory && !(activeCategory === 'embassy' && l.category_key === 'police')) return false;
       const hay = `${l.name} ${l.description || ''}`;
       if (activeCategory === 'fuel' && (!listingMatchesCategory(l, 'fuel') || !isFuelCoordinateClean(l.lat, l.lng) || !isCuratedTurkeyFuelPin(l.lat, l.lng, hay))) return false;
-      if (!isCuratedTurkeyPin(l.lat, l.lng, canonicalFuelBakeryKey(l), hay)) return false;
+      if (!listingPassesTurkeyPinGuard({ ...l, category_key: canonicalFuelBakeryKey(l) })) return false;
       const key = listingDedupeKey(l);
       if (seen.has(key)) return false;
       seen.add(key);
@@ -171,7 +183,7 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
     }
     if (loading && filteredHold.current.length > 0) return filteredHold.current;
     return next;
-  }, [listings, activeCategory, search, loading, cityHit, allTurkey]);
+  }, [listings, activeCategory, search, loading, cityHit, allTurkey, nationwideHotels]);
 
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-8">

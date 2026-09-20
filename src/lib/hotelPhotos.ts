@@ -239,6 +239,22 @@ function takeUnused(pool: string[], serial: number, used: Set<string>): string {
   throw new Error('Hotel photo bank exhausted — a URL would have been reused');
 }
 
+/** Wikimedia files for a live hotel when the name clearly matches a known property. */
+export function namedHotelPhotosForName(name: string): string[] {
+  const n = name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+  if (n.length < 5) return [];
+  for (const [slug, urls] of Object.entries(NAMED_PHOTOS)) {
+    const tokens = slug.split('-').filter((token) => token.length > 2);
+    if (tokens.length === 0) continue;
+    if (tokens.every((token) => n.includes(token))) return unique(urls);
+  }
+  return [];
+}
+
 /**
  * Three distinct photos per property: facade, lobby/reception, guest room.
  * Named Wikimedia files are used when they depict that exact hotel.
