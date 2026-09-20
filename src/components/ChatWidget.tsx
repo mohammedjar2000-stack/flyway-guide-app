@@ -119,7 +119,7 @@ export default function ChatWidget({
     }, 280);
   };
 
-  const fabPos = lifted ? 'bottom-4' : 'bottom-5';
+  const fabPos = lifted ? 'bottom-[8.75rem] md:bottom-4' : 'bottom-5';
   const cityHint = rememberedDistrict
     ? `${rememberedDistrict}، ${rememberedCity || city || ''}`.replace(/،\s*$/, '')
     : rememberedCity || city;

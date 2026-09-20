@@ -747,6 +747,26 @@ html.dark .gmaps-directions .gmaps-mode-active {
   width: 2.75rem;
 }
 
+.map-chips-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.map-chips-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.results-sheet-snap {
+  transition: height 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .results-sheet-snap {
+    transition: none;
+  }
+}
+
 @media (min-width: 768px) {
   .map-filter-rail {
     width: 13rem;

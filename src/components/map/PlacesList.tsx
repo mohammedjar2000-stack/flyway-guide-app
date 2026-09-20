@@ -15,6 +15,7 @@ interface PlacesListProps {
   activeId?: string | null;
   hoveredId?: string | null;
   scrollToId?: string | null;
+  compact?: boolean;
   onSelect: (item: DirectoryListing) => void;
   formatDistance?: (item: DirectoryListing) => string | null;
   onPreview?: (place: DirectoryListing, x: number, y: number, source: PreviewSource) => void;
@@ -81,6 +82,7 @@ const PlaceListRow = memo(function PlaceListRow({
   active,
   hovered,
   dist,
+  compact,
   onSelect,
   onPreview,
   onPreviewEnd,
@@ -89,6 +91,7 @@ const PlaceListRow = memo(function PlaceListRow({
   active: boolean;
   hovered: boolean;
   dist: string | null;
+  compact?: boolean;
   onSelect: (item: DirectoryListing) => void;
   onPreview?: PlacesListProps['onPreview'];
   onPreviewEnd?: () => void;
@@ -156,7 +159,7 @@ const PlaceListRow = memo(function PlaceListRow({
     </>
   );
 
-  if (isStay) {
+  if (isStay && !compact) {
     return (
       <div
         data-place-id={item.id}
@@ -199,7 +202,7 @@ const PlaceListRow = memo(function PlaceListRow({
       onMouseLeave={() => onPreviewEnd?.()}
       className={`${cardClass} p-2.5`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3" dir={compact ? 'ltr' : undefined}>
         <div className="relative w-[72px] h-[72px] rounded-xl overflow-hidden shrink-0 bg-slate-100">
           <PlaceSafeImage
             place={item}
@@ -215,7 +218,7 @@ const PlaceListRow = memo(function PlaceListRow({
             {visual.emoji}
           </span>
         </div>
-        <div className="flex-1 min-w-0 py-0.5">
+        <div className="flex-1 min-w-0 py-0.5" dir="rtl">
           {meta}
         </div>
       </div>
@@ -223,8 +226,9 @@ const PlaceListRow = memo(function PlaceListRow({
   );
 });
 
-function rowHeightFor(item: DirectoryListing) {
+function rowHeightFor(item: DirectoryListing, compact?: boolean) {
   const gap = 8;
+  if (compact) return 88 + gap;
   if (item.category_key === 'hotels' || item.category_key === 'restaurants' || item.category_key === 'transport') {
     return 196 + gap;
   }
@@ -241,6 +245,7 @@ function PlacesList({
   formatDistance,
   onPreview,
   onPreviewEnd,
+  compact,
 }: PlacesListProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 560 });
@@ -249,10 +254,10 @@ function PlacesList({
     const next = new Array<number>(items.length + 1);
     next[0] = 0;
     for (let i = 0; i < items.length; i++) {
-      next[i + 1] = next[i] + rowHeightFor(items[i]);
+      next[i + 1] = next[i] + rowHeightFor(items[i], compact);
     }
     return next;
-  }, [items]);
+  }, [items, compact]);
   const totalHeight = offsets[items.length] || 0;
 
   const onScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
@@ -327,6 +332,7 @@ function PlacesList({
               active={activeId === item.id}
               hovered={hoveredId === item.id && activeId !== item.id}
               dist={formatDistance?.(item) ?? null}
+              compact={compact}
               onSelect={onSelect}
               onPreview={onPreview}
               onPreviewEnd={onPreviewEnd}

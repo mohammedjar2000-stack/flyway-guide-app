@@ -13,6 +13,7 @@ import CategoryFilterBar from '@/components/map/CategoryFilterBar';
 import PlaceDetailsSheet from '@/components/map/PlaceDetailsSheet';
 import PlacesList from '@/components/map/PlacesList';
 import PlacesDrawer from '@/components/map/PlacesDrawer';
+import ResultsBottomSheet from '@/components/map/ResultsBottomSheet';
 import PlaceHoverCard from '@/components/map/PlaceHoverCard';
 import DirectionsPanel from '@/components/map/DirectionsPanel';
 import LiveNavOverlay from '@/components/map/LiveNavOverlay';
@@ -544,10 +545,21 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       </div>
 
       {!navigating && (
-      <div className="absolute top-3 inset-x-3 z-40 pointer-events-none flex flex-col items-center gap-2">
-        <div className="pointer-events-auto w-full max-w-xl">
+      <div className="absolute top-3 inset-x-3 z-40 pointer-events-none flex flex-col items-stretch gap-2 max-w-full">
+        <div className="pointer-events-auto w-full max-w-xl mx-auto">
           <CityPickerBar location={searchLocation} onSelect={handleCitySelect} />
         </div>
+        {!directionsOpen && (
+          <div className="pointer-events-auto w-full md:hidden rounded-2xl bg-white/75 backdrop-blur-md border border-white/50 p-1 shadow-sm">
+            <CategoryFilterBar
+              layout="chips"
+              selected={selectedCategories}
+              onChange={handleCategoriesChange}
+              counts={categoryCounts}
+              total={scopedTotal}
+            />
+          </div>
+        )}
         {(customLoc || tooZoomedOut || (loading && listings.length === 0) || error || fromFallback || (locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed)) && (
           <div className="pointer-events-auto shrink-0 flex flex-wrap items-center justify-center gap-2 text-[11px] max-w-xl">
             {customLoc && (
@@ -586,7 +598,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && (
-        <div dir="ltr" className="absolute z-40 left-4 top-[4.75rem] bottom-3 min-h-0 pointer-events-none flex flex-col items-start gap-2">
+        <div dir="ltr" className="absolute z-40 left-3 md:left-4 top-[4.75rem] bottom-[8.25rem] md:bottom-3 min-h-0 pointer-events-none hidden md:flex flex-col items-start gap-2">
           {!directionsOpen && (
             <div
               className="pointer-events-auto min-h-0 w-auto max-h-[calc(100%-11.5rem)] rounded-2xl bg-white/95 shadow-[0_8px_28px_rgba(15,23,42,0.18)] border border-black/[0.06] dark:bg-neutral-900/90 dark:border-white/10 overflow-y-auto overscroll-contain scroll-smooth touch-pan-y map-filter-shell"
@@ -629,8 +641,39 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
         </div>
       )}
 
+      {!navigating && (
+        <div className="absolute z-40 right-3 bottom-[8.35rem] md:hidden pointer-events-none">
+          <div className="pointer-events-auto flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => setDirectionsOpen((open) => !open)}
+              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
+                directionsOpen
+                  ? 'bg-[#e8f0fe] border-[#1a73e8]/40 text-[#1a73e8]'
+                  : 'bg-white border-slate-200 text-[#1a73e8]'
+              }`}
+              aria-label="من وإلى"
+              aria-pressed={directionsOpen}
+            >
+              <Route className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={locateMe}
+              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
+                followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-neutral-950/90 border-white/15 text-white'
+              }`}
+              aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
+              aria-pressed={followUser}
+            >
+              <Navigation className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {navigating && (
-        <div className="absolute z-40 left-4 bottom-[5.5rem] pointer-events-auto">
+        <div className="absolute z-40 left-3 md:left-4 bottom-[8.5rem] md:bottom-[5.5rem] pointer-events-auto">
           <button
             type="button"
             onClick={locateMe}
@@ -678,7 +721,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && directionsOpen && (
-        <div className="absolute z-50 inset-x-3 top-[4.75rem] md:hidden pointer-events-auto max-h-[58vh]">
+        <div className="absolute z-50 inset-x-3 top-[7.25rem] md:hidden pointer-events-auto max-h-[min(52vh,420px)]">
           <DirectionsPanel
             origin={originPoint}
             destination={destPoint}
@@ -718,7 +761,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
 
       {!navigating && (
         <div
-          className="absolute z-50 right-3 top-[4.75rem] bottom-3 w-[min(calc(100%-5.5rem),340px)] md:w-[340px] pointer-events-none flex flex-col max-md:top-auto max-md:left-[4.75rem] max-md:w-auto max-md:h-[min(52vh,520px)]"
+          className="absolute z-50 right-3 top-[4.75rem] bottom-3 w-[340px] pointer-events-none hidden md:flex flex-col"
           onWheel={(e) => e.stopPropagation()}
         >
           <ErrorBoundary label="قائمة الأماكن" resetKey={selectedCategories.join(',')}>
@@ -735,6 +778,25 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
                 formatDistance={listDistanceLabel}
               />
             </PlacesDrawer>
+          </ErrorBoundary>
+        </div>
+      )}
+
+      {!navigating && !directionsOpen && (
+        <div className="absolute z-50 inset-x-0 bottom-0 md:hidden pointer-events-none">
+          <ErrorBoundary label="قائمة الأماكن" resetKey={selectedCategories.join(',')}>
+            <ResultsBottomSheet count={drawerListings.length}>
+              <PlacesList
+                compact
+                items={drawerListings}
+                loading={(loading || dbLoading) && drawerListings.length === 0}
+                activeId={focusedItem?.id}
+                hoveredId={preview?.place.id}
+                scrollToId={preview?.source === 'marker' ? preview.place.id : preview ? undefined : focusedItem?.id}
+                onSelect={handleItemClick}
+                formatDistance={listDistanceLabel}
+              />
+            </ResultsBottomSheet>
           </ErrorBoundary>
         </div>
       )}

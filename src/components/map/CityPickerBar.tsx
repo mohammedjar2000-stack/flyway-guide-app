@@ -209,23 +209,23 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
 
   return (
     <div ref={rootRef} className="relative w-full" dir="rtl">
-      <div className="flex items-center gap-2 rounded-2xl bg-neutral-950/90 text-white border border-white/10 shadow-[0_8px_28px_rgba(0,0,0,0.35)] backdrop-blur-md px-2 py-2">
+      <div className="flex items-center gap-2 rounded-[22px] bg-white/90 text-slate-900 border border-white/70 shadow-[0_10px_32px_rgba(15,23,42,0.16)] backdrop-blur-xl px-2 py-1.5 dark:bg-neutral-950/88 dark:text-white dark:border-white/10">
         <button
           type="button"
           onClick={() => {
             setCountryMenu((v) => !v);
             setOpen(false);
           }}
-          className="shrink-0 max-w-[38%] sm:max-w-[30%] inline-flex items-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 px-2.5 py-2 text-[12px] font-semibold cursor-pointer"
+          className="shrink-0 max-w-[38%] sm:max-w-[30%] inline-flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-2 text-[12px] font-semibold cursor-pointer dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/10"
           aria-expanded={countryMenu}
         >
-          <Landmark className="w-3.5 h-3.5 text-brand-300 shrink-0" />
+          <Landmark className="w-3.5 h-3.5 text-brand-600 dark:text-brand-300 shrink-0" />
           <span className="truncate">{country}</span>
           <ChevronDown className="w-3.5 h-3.5 opacity-70 shrink-0" />
         </button>
 
         <div className="relative flex-1 min-w-0">
-          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             ref={inputRef}
             value={open ? query : ''}
@@ -239,26 +239,26 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
               setCountryMenu(false);
             }}
             placeholder={label}
-            className="w-full bg-white/10 hover:bg-white/15 focus:bg-white/15 border border-white/10 rounded-xl pr-9 pl-8 py-2 text-[13px] text-white placeholder:text-zinc-400 outline-none"
+            className="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-xl pr-9 pl-8 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none dark:bg-white/10 dark:hover:bg-white/15 dark:focus:bg-white/15 dark:border-white/10 dark:text-white dark:placeholder:text-zinc-400"
             aria-label="خانة المدن الذكية"
           />
           {(open && query) ? (
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white cursor-pointer"
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer dark:text-zinc-400 dark:hover:text-white"
               aria-label="مسح البحث"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           ) : (
-            <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-brand-300 pointer-events-none" />
+            <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-brand-600 dark:text-brand-300 pointer-events-none" />
           )}
         </div>
       </div>
 
       {countryMenu && (
-        <div className="absolute top-[calc(100%+6px)] right-0 z-50 w-[min(100%,280px)] max-h-72 overflow-y-auto rounded-2xl bg-neutral-950/95 border border-white/10 shadow-2xl p-1.5">
+        <div className="absolute top-[calc(100%+6px)] right-0 z-50 w-[min(100%,280px)] max-h-72 overflow-y-auto rounded-2xl bg-white/95 border border-slate-200 shadow-2xl p-1.5 backdrop-blur-xl dark:bg-neutral-950/95 dark:border-white/10">
           {countries.map((item) => {
             const active = item.name === country;
             return (
@@ -267,7 +267,7 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
                 type="button"
                 onClick={() => applyCountry(item)}
                 className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-right text-[13px] cursor-pointer ${
-                  active ? 'bg-brand-500/20 text-white' : 'text-zinc-200 hover:bg-white/8'
+                  active ? 'bg-brand-100 text-slate-900 dark:bg-brand-500/20 dark:text-white' : 'text-slate-700 hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-white/8'
                 }`}
               >
                 <span>{item.name}</span>
@@ -279,13 +279,13 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
       )}
 
       {open && (
-        <div className="absolute top-[calc(100%+6px)] inset-x-0 z-50 max-h-[min(58vh,420px)] overflow-y-auto rounded-2xl bg-neutral-950/95 border border-white/10 shadow-2xl p-2">
+        <div className="absolute top-[calc(100%+6px)] inset-x-0 z-50 max-h-[min(48vh,360px)] overflow-y-auto rounded-2xl bg-white/95 border border-slate-200 shadow-2xl p-2 backdrop-blur-xl dark:bg-neutral-950/95 dark:border-white/10">
           {isTurkeyCountry(country) && (
             <button
               type="button"
               onClick={applyAllTurkey}
               className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-right text-[13px] cursor-pointer mb-1 ${
-                isAllTurkeyCity(location?.city) ? 'bg-brand-500/20 text-white' : 'text-brand-200 hover:bg-white/8'
+                isAllTurkeyCity(location?.city) ? 'bg-brand-100 text-slate-900 dark:bg-brand-500/20 dark:text-white' : 'text-brand-700 hover:bg-slate-100 dark:text-brand-200 dark:hover:bg-white/8'
               }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -318,10 +318,10 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
                     type="button"
                     onClick={() => applyOption(option)}
                     className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-right cursor-pointer ${
-                      active ? 'bg-brand-500/20 text-white' : 'text-zinc-100 hover:bg-white/8'
+                      active ? 'bg-brand-100 text-slate-900 dark:bg-brand-500/20 dark:text-white' : 'text-slate-800 hover:bg-slate-100 dark:text-zinc-100 dark:hover:bg-white/8'
                     }`}
                   >
-                    <MapPin className="w-3.5 h-3.5 text-brand-300 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-brand-600 dark:text-brand-300 shrink-0" />
                     <span className="flex-1 min-w-0">
                       <span className="block text-[13px] font-semibold truncate">{option.name}</span>
                       <span className="block text-[11px] text-zinc-400 truncate">{option.en}</span>
@@ -343,7 +343,7 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
                     type="button"
                     onClick={() => applyOption(option)}
                     className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-right cursor-pointer ${
-                      active ? 'bg-brand-500/20 text-white' : 'text-zinc-100 hover:bg-white/8'
+                      active ? 'bg-brand-100 text-slate-900 dark:bg-brand-500/20 dark:text-white' : 'text-slate-800 hover:bg-slate-100 dark:text-zinc-100 dark:hover:bg-white/8'
                     }`}
                   >
                     <Landmark className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
