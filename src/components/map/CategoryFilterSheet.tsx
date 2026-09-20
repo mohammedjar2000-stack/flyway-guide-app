@@ -35,25 +35,23 @@ export default function CategoryFilterSheet({
     <div className="absolute inset-0 z-[70] pointer-events-none" dir="rtl">
       <button
         type="button"
-        className="absolute inset-0 pointer-events-auto bg-black/45 backdrop-blur-[2px] cursor-pointer"
+        className="absolute inset-0 pointer-events-auto bg-black/40 backdrop-blur-[1px] cursor-pointer"
         aria-label="إغلاق التصنيفات"
         onClick={onClose}
       />
-      <div className="pointer-events-auto absolute inset-x-0 bottom-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[min(32rem,calc(100%-2rem))] max-h-[min(82vh,640px)] flex flex-col rounded-t-3xl md:rounded-3xl border border-white/70 bg-white shadow-[0_-16px_50px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-neutral-950">
-        <div className="shrink-0 flex items-center gap-2 px-4 pt-3 pb-2">
-          <span className="mx-auto md:mx-0 w-10 h-1.5 rounded-full bg-slate-300 dark:bg-white/25 md:hidden" />
-          <h2 className="hidden md:block flex-1 text-right text-base font-bold text-neutral-950 dark:text-white">التصنيفات</h2>
+      <aside className="pointer-events-auto absolute top-0 bottom-0 left-0 w-[min(20.5rem,88vw)] flex flex-col bg-white shadow-[12px_0_40px_rgba(15,23,42,0.22)] border-r border-slate-200 dark:bg-neutral-950 dark:border-white/10">
+        <div className="shrink-0 flex items-center gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 border-b border-slate-100 dark:border-white/10">
+          <h2 className="flex-1 text-right text-base font-bold text-neutral-950 dark:text-white">التصنيفات والخدمات</h2>
           <button
             type="button"
             onClick={onClose}
-            className="ms-auto w-9 h-9 rounded-full bg-slate-100 text-neutral-800 hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 flex items-center justify-center cursor-pointer"
+            className="w-9 h-9 rounded-full bg-slate-100 text-neutral-800 hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 flex items-center justify-center cursor-pointer"
             aria-label="إغلاق"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <p className="px-4 pb-2 text-sm font-bold text-neutral-950 dark:text-white md:hidden">التصنيفات والخدمات</p>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-24 md:pb-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-24">
           <CategoryFilterBar
             layout="grid"
             selected={selected}
@@ -62,7 +60,7 @@ export default function CategoryFilterSheet({
             total={total}
           />
         </div>
-      </div>
+      </aside>
     </div>
   );
 }

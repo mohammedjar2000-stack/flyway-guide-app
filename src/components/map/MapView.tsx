@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import type { PreviewSource } from '@/hooks/usePlacePreview';
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -210,6 +210,25 @@ function KeepTilesOnZoom() {
   return null;
 }
 
+export type MapCommandApi = {
+  zoomIn: () => void;
+  zoomOut: () => void;
+};
+
+function MapCommands({ apiRef }: { apiRef: MutableRefObject<MapCommandApi | null> }) {
+  const map = useMap();
+  useEffect(() => {
+    apiRef.current = {
+      zoomIn: () => { map.zoomIn(); },
+      zoomOut: () => { map.zoomOut(); },
+    };
+    return () => {
+      apiRef.current = null;
+    };
+  }, [apiRef, map]);
+  return null;
+}
+
 function saneRouteLine(coords: [number, number][] | null | undefined): [number, number][] | null {
   if (!coords || coords.length < 2) return null;
   const points = coords.filter(([lat, lng]) => (
@@ -245,6 +264,7 @@ export interface MapViewProps {
   navigating?: boolean;
   fitListings?: boolean;
   fitListingsToken?: string;
+  commandsRef?: MutableRefObject<MapCommandApi | null>;
 }
 
 function MapView({
@@ -273,6 +293,7 @@ function MapView({
   navigating = false,
   fitListings = false,
   fitListingsToken = '',
+  commandsRef,
 }: MapViewProps) {
   const originIcon = useMemo(() => makeOriginIcon(), []);
   const destIcon = useMemo(() => makeDestIcon(), []);
@@ -351,6 +372,7 @@ function MapView({
           updateWhenIdle
         />
         <KeepTilesOnZoom />
+        {commandsRef ? <MapCommands apiRef={commandsRef} /> : null}
         <TileLoadTracker onChange={setTilesLoading} />
         <MapRecenter
           lat={center.lat}

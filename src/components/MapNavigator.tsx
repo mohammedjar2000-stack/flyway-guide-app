@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Crosshair, Navigation, Route, SlidersHorizontal, X,
+  Minus, Navigation, Plus, Route, SlidersHorizontal, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { haversineKm, type MapBounds } from '@/lib/geo';
@@ -8,7 +8,7 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 import { usePlacesQuery } from '@/hooks/usePlacesQuery';
 import { usePersistedMapFilters } from '@/hooks/usePersistedMapFilters';
 import type { DirectoryListing } from '@/types';
-import MapView from '@/components/map/MapView';
+import MapView, { type MapCommandApi } from '@/components/map/MapView';
 import CategoryFilterSheet from '@/components/map/CategoryFilterSheet';
 import PlaceDetailsSheet from '@/components/map/PlaceDetailsSheet';
 import PlacesList from '@/components/map/PlacesList';
@@ -82,6 +82,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
   const [geoBannerDismissed, setGeoBannerDismissed] = useState(false);
   const [locationAttempted, setLocationAttempted] = useState(false);
   const pendingLocate = useRef(false);
+  const mapCommands = useRef<MapCommandApi | null>(null);
   const { preview, show: showPreview, hide: hidePreview, clear: clearPreview } = usePlacePreview();
 
   useEffect(() => subscribeVault(() => setDbListings(getVaultSnapshot())), []);
@@ -550,43 +551,53 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
             navigating={navigating}
             fitListings={(hotelsOnly || diningOnly) && !searchLocation?.district && !searchLocation?.poiId}
             fitListingsToken={hotelsOnly ? 'hotels' : diningOnly ? 'dining' : ''}
+            commandsRef={mapCommands}
           />
         </ErrorBoundary>
       </div>
 
       {!navigating && (
-      <div className="absolute top-3 inset-x-3 z-40 pointer-events-none flex flex-col items-stretch gap-2 max-w-full">
-        <div className="pointer-events-auto w-full max-w-xl mx-auto">
-          <CityPickerBar location={searchLocation} onSelect={handleCitySelect} />
+      <div className="absolute top-3 inset-x-3 z-40 pointer-events-none flex flex-col items-stretch gap-2">
+        <div className="flex items-start gap-2" dir="ltr">
+          <button
+            type="button"
+            onClick={() => {
+              setDirectionsOpen(false);
+              setFiltersOpen((open) => !open);
+            }}
+            className={`pointer-events-auto shrink-0 w-12 h-12 rounded-2xl border shadow-xl flex items-center justify-center cursor-pointer ${
+              filtersOpen || categoryFilterActive
+                ? 'bg-brand-400 border-brand-300 text-neutral-950'
+                : 'bg-white/95 border-white/80 text-neutral-800 dark:bg-neutral-950/90 dark:border-white/10 dark:text-white'
+            }`}
+            aria-label="التصنيفات"
+            aria-pressed={filtersOpen || categoryFilterActive}
+          >
+            <SlidersHorizontal className="w-5 h-5" />
+          </button>
+          <div className="pointer-events-auto min-w-0 flex-1" dir="rtl">
+            <CityPickerBar location={searchLocation} onSelect={handleCitySelect} />
+          </div>
         </div>
-        {(customLoc || tooZoomedOut || (loading && listings.length === 0) || error || fromFallback || (locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed)) && (
-          <div className="pointer-events-auto shrink-0 flex flex-wrap items-center justify-center gap-2 text-[11px] max-w-xl">
-            {customLoc && (
-              <span className="inline-flex items-center gap-1.5 bg-black/55 text-white rounded-full px-3 py-1 border border-white/10">
-                <Crosshair className="w-3 h-3 text-brand-300" />
-                {customLoc.label}
-                <button type="button" onClick={() => setCustomLoc(null)} className="cursor-pointer">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
+        {(tooZoomedOut || (loading && listings.length === 0) || error || fromFallback || (locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed)) && (
+          <div className="pointer-events-auto w-full flex flex-wrap items-center justify-center gap-1.5 pt-0.5">
             {loading && listings.length === 0 && (
-              <span className="bg-black/55 text-brand-200 rounded-full px-3 py-1">جاري تحديث الأماكن...</span>
+              <span className="bg-black/60 text-brand-200 rounded-full px-3 py-1.5 text-[11px]">جاري تحديث الأماكن...</span>
             )}
             {fromFallback && !loading && (
-              <span className="bg-black/55 text-zinc-100 rounded-full px-3 py-1">عرض أماكن إرشادية ريثما تتوفر البيانات الحية</span>
+              <span className="bg-black/60 text-zinc-100 rounded-full px-3 py-1.5 text-[11px]">عرض أماكن إرشادية ريثما تتوفر البيانات الحية</span>
             )}
-            {tooZoomedOut && <span className="bg-black/55 text-amber-200 rounded-full px-3 py-1">قرّب الخريطة لعرض الأماكن الحية</span>}
+            {tooZoomedOut && <span className="bg-black/60 text-amber-200 rounded-full px-3 py-1.5 text-[11px]">قرّب الخريطة لعرض الأماكن الحية</span>}
             {error && !loading && listings.length === 0 && (
-              <button type="button" onClick={() => { void refetch(); }} className="bg-black/55 text-amber-200 rounded-full px-3 py-1 cursor-pointer">
+              <button type="button" onClick={() => { void refetch(); }} className="bg-black/60 text-amber-200 rounded-full px-3 py-1.5 text-[11px] cursor-pointer">
                 تعذر جلب البيانات — اضغط لإعادة المحاولة
               </button>
             )}
             {(locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed) && (
-              <span className="inline-flex items-center gap-2 bg-black/70 text-amber-100 rounded-full px-3 py-1 border border-amber-400/30">
-                <span>{geo.error || 'لم يتم تفعيل الموقع — يمكنك البحث أو تحريك الخريطة يدوياً'}</span>
-                <button type="button" onClick={locateMe} className="underline cursor-pointer">تفعيل</button>
-                <button type="button" onClick={() => setGeoBannerDismissed(true)} className="cursor-pointer" aria-label="إغلاق">
+              <span className="inline-flex items-center gap-2 max-w-full bg-black/70 text-amber-100 rounded-full px-3 py-1.5 border border-amber-400/30 text-[11px]">
+                <span className="truncate">{geo.error || 'لم يتم تفعيل الموقع — يمكنك البحث أو تحريك الخريطة يدوياً'}</span>
+                <button type="button" onClick={locateMe} className="underline cursor-pointer shrink-0">تفعيل</button>
+                <button type="button" onClick={() => setGeoBannerDismissed(true)} className="cursor-pointer shrink-0" aria-label="إغلاق">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -598,24 +609,35 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
 
       {!navigating && (
         <div className={`absolute z-40 right-3 pointer-events-none ${
-          showResultsList ? 'bottom-[min(44vh,360px)] md:bottom-[5.5rem]' : 'bottom-[5.5rem]'
+          showResultsList ? 'bottom-[min(46vh,380px)] md:bottom-6' : 'bottom-6'
         }`}>
-          <div className="pointer-events-auto flex flex-col gap-2">
+          <div dir="ltr" className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-black/5 bg-white/95 shadow-[0_10px_28px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-neutral-900/95">
             <button
               type="button"
-              onClick={() => {
-                setDirectionsOpen(false);
-                setFiltersOpen((open) => !open);
-              }}
-              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
-                filtersOpen || categoryFilterActive
-                  ? 'bg-brand-400 border-brand-300 text-neutral-950'
-                  : 'bg-white border-slate-200 text-neutral-800'
-              }`}
-              aria-label="التصنيفات"
-              aria-pressed={filtersOpen || categoryFilterActive}
+              onClick={() => mapCommands.current?.zoomIn()}
+              className="w-11 h-11 flex items-center justify-center text-neutral-800 hover:bg-slate-100 cursor-pointer dark:text-white dark:hover:bg-white/10"
+              aria-label="تكبير"
             >
-              <SlidersHorizontal className="w-5 h-5" />
+              <Plus className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => mapCommands.current?.zoomOut()}
+              className="w-11 h-11 flex items-center justify-center text-neutral-800 hover:bg-slate-100 cursor-pointer border-t border-slate-200 dark:text-white dark:hover:bg-white/10 dark:border-white/10"
+              aria-label="تصغير"
+            >
+              <Minus className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={locateMe}
+              className={`w-11 h-11 flex items-center justify-center cursor-pointer border-t border-slate-200 dark:border-white/10 ${
+                followUser ? 'bg-brand-400 text-neutral-950' : 'text-neutral-800 hover:bg-slate-100 dark:text-white dark:hover:bg-white/10'
+              }`}
+              aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
+              aria-pressed={followUser}
+            >
+              <Navigation className="w-5 h-5" />
             </button>
             <button
               type="button"
@@ -623,38 +645,27 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
                 setFiltersOpen(false);
                 setDirectionsOpen((open) => !open);
               }}
-              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
+              className={`w-11 h-11 flex items-center justify-center cursor-pointer border-t border-slate-200 dark:border-white/10 ${
                 directionsOpen
-                  ? 'bg-[#e8f0fe] border-[#1a73e8]/40 text-[#1a73e8]'
-                  : 'bg-white border-slate-200 text-[#1a73e8]'
+                  ? 'bg-[#e8f0fe] text-[#1a73e8]'
+                  : 'text-[#1a73e8] hover:bg-slate-100 dark:hover:bg-white/10'
               }`}
               aria-label="من وإلى"
               aria-pressed={directionsOpen}
             >
               <Route className="w-5 h-5" />
             </button>
-            <button
-              type="button"
-              onClick={locateMe}
-              className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
-                followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-neutral-950/90 border-white/15 text-white'
-              }`}
-              aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
-              aria-pressed={followUser}
-            >
-              <Navigation className="w-5 h-5" />
-            </button>
           </div>
         </div>
       )}
 
       {navigating && (
-        <div className="absolute z-40 left-3 md:left-4 bottom-[8.5rem] md:bottom-[5.5rem] pointer-events-auto">
+        <div className="absolute z-40 right-3 bottom-6 pointer-events-auto">
           <button
             type="button"
             onClick={locateMe}
-            className={`w-12 h-12 rounded-full border shadow-xl flex items-center justify-center cursor-pointer ${
-              followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-neutral-950/90 border-white/15 text-white'
+            className={`w-11 h-11 rounded-2xl border shadow-xl flex items-center justify-center cursor-pointer ${
+              followUser ? 'bg-brand-400 border-brand-300 text-neutral-950' : 'bg-white/95 border-white/80 text-neutral-800'
             }`}
             aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
             aria-pressed={followUser}
@@ -665,7 +676,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && (
-      <div className="absolute top-[4.75rem] left-3 z-40 pointer-events-none hidden md:block">
+      <div className="absolute top-[5.75rem] left-3 z-40 pointer-events-none hidden md:block">
         {directionsOpen && (
           <div className="pointer-events-auto w-[380px] max-h-[calc(100dvh-8rem)]">
             <DirectionsPanel
@@ -697,7 +708,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && directionsOpen && (
-        <div className="absolute z-50 inset-x-3 top-[4.75rem] md:hidden pointer-events-auto max-h-[min(52vh,420px)]">
+        <div className="absolute z-50 inset-x-3 top-[5.75rem] md:hidden pointer-events-auto max-h-[min(52vh,420px)]">
           <DirectionsPanel
             origin={originPoint}
             destination={destPoint}
@@ -737,7 +748,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
 
       {!navigating && showResultsList && (
         <div
-          className="absolute z-50 right-3 top-[4.75rem] bottom-3 w-[340px] pointer-events-none hidden md:flex flex-col"
+          className="absolute z-50 right-3 top-[5.75rem] bottom-3 w-[340px] pointer-events-none hidden md:flex flex-col"
           onWheel={(e) => e.stopPropagation()}
         >
           <ErrorBoundary label="قائمة الأماكن" resetKey={selectedCategories.join(',')}>
