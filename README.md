@@ -1,3 +1,3 @@
-# flyway-guide
+# دليل المسافر
 
-[![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-a86oy9kq)
+المنصة الذكية للمسافر العراقي والعربي في تركيا — فنادق، مستشفيات، مطاعم، وخدمات قريبة على الخريطة.
