@@ -488,7 +488,7 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                       setSelectedCountry(null);
                       const q = e.target.value;
                       filterCountries(q);
-                      setShowCountrySuggestions(q.trim().length > 0);
+                      setShowCountrySuggestions(q.trim().length >= 2);
                       searchLocations(q, setCountryResults, 'country');
                       setShowCountryResults(q.trim().length >= 2);
                       setShowCityResults(false);
@@ -496,7 +496,7 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                       setShowSuggestions(false);
                       setShowNeighborhoodSuggestions(false);
                     }}
-                    onFocus={() => { filterCountries(countryQuery); setShowCountrySuggestions(true); if (countryResults.length > 0 && !countryQuery.trim()) setShowCountryResults(false); }}
+                    onFocus={() => { if (countryQuery.trim().length >= 2) { filterCountries(countryQuery); setShowCountrySuggestions(true); } }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && selectedCountry) geocodeAndNavigate(); }}
                     placeholder="ابحث عن أي دولة..."
                     className="w-full bg-slate-50 hover:bg-slate-100 rounded-xl px-4 py-3.5 text-slate-900 text-sm font-semibold outline-none border border-slate-200 focus:border-brand-400 transition-all placeholder:text-slate-400 placeholder:font-normal"
@@ -550,7 +550,7 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                       const q = e.target.value;
                       const country = selectedCountry?.name || countryQuery.trim() || undefined;
                       filterCities(q, country);
-                      setShowCitySuggestions(Boolean(country) || q.trim().length > 0);
+                      setShowCitySuggestions(q.trim().length >= 2);
                       if (!country && q.trim().length >= 2) {
                         searchLocations(q, setCityResults, 'settlement');
                         setShowCityResults(true);
@@ -564,6 +564,7 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                       setShowNeighborhoodSuggestions(false);
                     }}
                     onFocus={() => {
+                      if (cityQuery.trim().length < 2) return;
                       const country = selectedCountry?.name || countryQuery.trim() || undefined;
                       const major = listMajorCities(country, cityQuery);
                       if (major.length) setCitySuggestions(major);

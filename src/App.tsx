@@ -49,7 +49,7 @@ function AppContent() {
       cats: initial.cats,
       q: initial.q,
       ...locationToSessionPatch(locationFromFallbackSession(initial)),
-    }, 'replace');
+    }, 'none');
   }, [initial]);
 
   useEffect(() => subscribeSession((session) => {

@@ -747,10 +747,30 @@ html.dark .gmaps-directions .gmaps-mode-active {
   width: 2.75rem;
 }
 
-.map-chips-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-overflow-scrolling: touch;
+.map-overlay-filter {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+}
+
+.map-overlay-search {
+  position: absolute;
+  top: 0.75rem;
+  left: 4.25rem;
+  right: 0.75rem;
+}
+
+.map-overlay-banners {
+  position: absolute;
+  top: 4.5rem;
+  left: 4.25rem;
+  right: 0.75rem;
+}
+
+.map-overlay-dock {
+  top: auto;
+  right: 0.75rem;
+  bottom: 1.5rem;
 }
 
 .map-chips-scroll::-webkit-scrollbar {

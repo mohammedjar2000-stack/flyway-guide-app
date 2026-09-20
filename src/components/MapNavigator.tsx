@@ -57,7 +57,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     });
     return getCityBoundingBox(city?.name || seed.city, 22) ?? bboxAround(seed.lat, seed.lng, 22);
   });
-  const [zoom, setZoom] = useState(14);
+  const [zoom, setZoom] = useState(() => searchLocation?.zoom ?? 14);
 
   const [customLoc, setCustomLoc] = useState<{ lat: number; lng: number; label: string; zoom?: number } | null>(
     searchLocation ? { lat: searchLocation.lat, lng: searchLocation.lng, label: searchLocation.label, zoom: searchLocation.zoom } : null,
@@ -115,7 +115,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
     };
   }, [searchLocation?.city]);
 
-  const lastFocus = useRef<AppLocation | null>(null);
+  const lastFocus = useRef<AppLocation | null>(searchLocation ?? null);
 
   const flyToLocation = useCallback((next: AppLocation, opts?: { resetRoute?: boolean }) => {
     const safe = safeMapCenter(next.lat, next.lng, next.zoom);
@@ -557,30 +557,28 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       </div>
 
       {!navigating && (
-      <div className="absolute top-3 inset-x-3 z-40 pointer-events-none flex flex-col items-stretch gap-2">
-        <div className="flex items-start gap-2" dir="ltr">
-          <button
-            type="button"
-            onClick={() => {
-              setDirectionsOpen(false);
-              setFiltersOpen((open) => !open);
-            }}
-            className={`pointer-events-auto shrink-0 w-12 h-12 rounded-2xl border shadow-xl flex items-center justify-center cursor-pointer ${
-              filtersOpen || categoryFilterActive
-                ? 'bg-brand-400 border-brand-300 text-neutral-950'
-                : 'bg-white/95 border-white/80 text-neutral-800 dark:bg-neutral-950/90 dark:border-white/10 dark:text-white'
-            }`}
-            aria-label="التصنيفات"
-            aria-pressed={filtersOpen || categoryFilterActive}
-          >
-            <SlidersHorizontal className="w-5 h-5" />
-          </button>
-          <div className="pointer-events-auto min-w-0 flex-1" dir="rtl">
-            <CityPickerBar location={searchLocation} onSelect={handleCitySelect} />
-          </div>
+      <div className="absolute inset-0 z-40 pointer-events-none">
+        <button
+          type="button"
+          onClick={() => {
+            setDirectionsOpen(false);
+            setFiltersOpen((open) => !open);
+          }}
+          className={`map-overlay-filter pointer-events-auto w-12 h-12 rounded-2xl border shadow-xl flex items-center justify-center cursor-pointer ${
+            filtersOpen || categoryFilterActive
+              ? 'bg-brand-400 border-brand-300 text-neutral-950'
+              : 'bg-white/95 border-white/80 text-neutral-800 dark:bg-neutral-950/90 dark:border-white/10 dark:text-white'
+          }`}
+          aria-label="التصنيفات"
+          aria-pressed={filtersOpen || categoryFilterActive}
+        >
+          <SlidersHorizontal className="w-5 h-5" />
+        </button>
+        <div className="map-overlay-search pointer-events-auto" dir="rtl">
+          <CityPickerBar location={searchLocation} onSelect={handleCitySelect} />
         </div>
         {(tooZoomedOut || (loading && listings.length === 0) || error || fromFallback || (locationAttempted && (geo.status === 'denied' || geo.status === 'unavailable') && !geoBannerDismissed)) && (
-          <div className="pointer-events-auto w-full flex flex-wrap items-center justify-center gap-1.5 pt-0.5">
+          <div className="map-overlay-banners pointer-events-auto flex flex-wrap items-center justify-center gap-1.5">
             {loading && listings.length === 0 && (
               <span className="bg-black/60 text-brand-200 rounded-full px-3 py-1.5 text-[11px]">جاري تحديث الأماكن...</span>
             )}
@@ -608,9 +606,7 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
       )}
 
       {!navigating && (
-        <div className={`absolute z-40 right-3 pointer-events-none ${
-          showResultsList ? 'bottom-[min(46vh,380px)] md:bottom-6' : 'bottom-6'
-        }`}>
+        <div className="map-overlay-dock absolute z-[55] pointer-events-none">
           <div dir="ltr" className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-black/5 bg-white/95 shadow-[0_10px_28px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-neutral-900/95">
             <button
               type="button"

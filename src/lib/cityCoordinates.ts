@@ -339,6 +339,21 @@ export function normalizeName(value: string): string {
     .replace(/[^a-z0-9\u0600-\u06ff]+/g, '');
 }
 
+export function queryMatchScore(query: string, ...fields: Array<string | undefined | null>): number {
+  const q = normalizeName(query);
+  if (!q) return 0;
+  let best = 0;
+  for (const field of fields) {
+    if (!field) continue;
+    const n = normalizeName(field);
+    if (!n) continue;
+    if (n === q) best = Math.max(best, 4);
+    else if (n.startsWith(q)) best = Math.max(best, 3);
+    else if (n.includes(q)) best = Math.max(best, 1);
+  }
+  return best;
+}
+
 export function isValidCoord(lat?: number | null, lng?: number | null): boolean {
   if (lat == null || lng == null) return false;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;

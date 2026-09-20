@@ -3,7 +3,7 @@ import {
   getMajorCitiesForCountry,
   isValidCoord,
   lookupCity,
-  normalizeName,
+  queryMatchScore,
 } from '@/lib/cityCoordinates';
 
 export interface CityData {
@@ -240,20 +240,17 @@ export async function getDataset(): Promise<CountryData[]> {
 
 export async function searchCountries(query: string): Promise<CountryData[]> {
   const dataset = await getDataset();
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   if (!q) return dataset.filter((c) => prioritySet.has(c.code));
-  return dataset.filter(
-    (c) =>
-      c.name.toLowerCase().includes(q) ||
-      c.en.toLowerCase().includes(q) ||
-      c.code.toLowerCase().includes(q)
-  );
+  return dataset
+    .map((c) => ({ c, score: queryMatchScore(q, c.name, c.en, c.code) }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.c.name.localeCompare(b.c.name, 'ar'))
+    .map((row) => row.c);
 }
 
 function majorCitiesAsResults(countryName?: string, query = ''): { city: CityData; countryName: string }[] {
-  const q = normalizeName(query);
   return getMajorCitiesForCountry(countryName)
-    .filter((c) => !q || normalizeName(c.name).includes(q) || normalizeName(c.en).includes(q) || normalizeName(c.country).includes(q))
     .map((c) => ({
       city: {
         name: c.name,
@@ -264,7 +261,11 @@ function majorCitiesAsResults(countryName?: string, query = ''): { city: CityDat
         districts: DISTRICT_DATA[`${c.en}_${c.countryCode}`] ?? [],
       },
       countryName: c.country,
-    }));
+      score: query ? queryMatchScore(query, c.name, c.en, c.country) : 1,
+    }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ city, countryName }) => ({ city, countryName }));
 }
 
 export function listMajorCities(countryName?: string, query = '') {
