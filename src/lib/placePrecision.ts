@@ -1,6 +1,8 @@
 import type { DirectoryListing } from '@/types';
 import { validateCoordinates } from '@/lib/coordIntegrity';
 import { isForbiddenFuelVenue, isFuelCoordinateClean } from '@/lib/fuelGuard';
+import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
+import { isCuratedTurkeyPin, isTurkeyCatalogCoordinate } from '@/lib/turkeyCuratedGuard';
 
 export function sanitizePin(lat: number, lng: number): { lat: number; lng: number } | null {
   const la = Number(lat);
@@ -106,6 +108,7 @@ export function osmTagsMatchCategory(tags: Record<string, string> | undefined, c
 }
 
 const HOSPITAL_STRICT = /hospital|hastane|hastanesi|مستشفى|عيادة|clinic|طوارئ|acil|polyclinic/i;
+const CROSS_BLEED = /sigorta|insurance|atölye|atolye|workshop|tamirhane|kaporta|kaynak|genel müdürlük|headquarters|kurumsal|metal iş|demir doğrama|\bacente\b|plaza ofis|oto sanayi|commercial office/i;
 
 const FUEL_VENUE_RE = /opet|shell|\bbp\b|petrol\s*ofisi|\baytemiz\b|totalenergies|\btotal\b|enoc|adnoc|lukoil|go\s?petrol|benzin|benzinlik|akaryakıt|akaryakit|fuel\s?station|petrol\s?station|gas\s?station|محطة\s*وقود|\bوقود\b|بنزين|أوبيت|بترول\s*أوفيسي|أيتميز|اينوك|اد نوك/i;
 const BAKERY_GROCERY_RE = /fırın|firin|مخبز|مخابز|\bفرن\b|ekmek|pastane|bakery|patisserie|güllüoğlu|gulluoglu|hafız\s*mustafa|hafiz\s*mustafa|حافظ مصطفى|\bbim\b|a101|şok|\bsok\b|migros|carrefour|greengrocer|supermarket|سوبر\s*ماركت|بقالة|\bبيم\b|أ101|ميغروس|كارفور/i;
@@ -165,6 +168,10 @@ export function listingMatchesCategory(
 ): boolean {
   const hay = venueHay(place);
 
+  if (CROSS_BLEED.test(hay) && !['exchange', 'telecom'].includes(categoryKey)) {
+    if (!(categoryKey === 'hospitals' && HOSPITAL_STRICT.test(hay))) return false;
+  }
+
   if (categoryKey === 'hospitals') {
     if (HOSPITAL_NAME_BAN.test(hay) && !HOSPITAL_STRICT.test(hay)) return false;
     if (FACULTY_WITHOUT_HOSPITAL.test(hay) && !HOSPITAL_STRICT.test(hay)) return false;
@@ -219,7 +226,12 @@ export function pinListing(place: DirectoryListing): DirectoryListing | null {
   const pin = sanitizePin(normalized.lat, normalized.lng);
   if (!pin) return null;
   if (!listingMatchesCategory(normalized, normalized.category_key)) return null;
-  if (normalized.category_key === 'fuel' && !isFuelCoordinateClean(pin.lat, pin.lng)) return null;
+  if (normalized.category_key === 'fuel') {
+    if (!isFuelCoordinateClean(pin.lat, pin.lng)) return null;
+    if (!isCuratedTurkeyFuelPin(pin.lat, pin.lng, venueHay(normalized))) return null;
+  } else if (isTurkeyCatalogCoordinate(pin.lat, pin.lng)) {
+    if (!isCuratedTurkeyPin(pin.lat, pin.lng, normalized.category_key, venueHay(normalized))) return null;
+  }
   const verdict = validateCoordinates({
     lat: pin.lat,
     lng: pin.lng,

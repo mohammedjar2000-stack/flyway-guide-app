@@ -83,8 +83,8 @@ const NEIGHBORHOOD_SUGGESTIONS: { label: string; query: string }[] = [
 ];
 
 const HERO_BACKGROUND = '/hero-phone-map.jpg';
-const HERO_TITLE = 'خريطتك في راحة يدك';
-const HERO_SUBTITLE = 'ابحث عن المستشفيات، الصيدليات، الفنادق والمساجد على خريطة حية — من شاشة هاتفك إلى وجهتك الحقيقية';
+const HERO_TITLE = 'دليلك في راحة يدك';
+const HERO_SUBTITLE = 'بوابتك الذكية لاستكشاف أفضل الفنادق، المستشفيات، والخدمات في وجهتك بكل سهولة';
 
 export default function HomePage({ onNavigate, onLocationChange, onSearchNavigate, onDirectoryNavigate, currentLocation }: HomePageProps) {
   const [countries, setCountries] = useState<Country[]>([]);
@@ -427,31 +427,43 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
 
   return (
     <div className="min-h-screen">
-      {/* Hero — single fixed phone-map background. Search card layout is locked. */}
-      <section className="relative min-h-[640px] md:min-h-[680px] overflow-hidden">
+      {/* Hero — cinematic travel background. Search card layout is locked (CLAUDE.md). */}
+      <section
+        className="relative min-h-[640px] md:min-h-[700px] overflow-hidden"
+        aria-labelledby="hero-heading"
+        dir="rtl"
+      >
         <div className="absolute inset-0">
           <img
             src={HERO_BACKGROUND}
-            alt="خريطة الجيب الذكية"
-            className="w-full h-full object-cover object-center"
+            alt=""
+            role="presentation"
+            width={1920}
+            height={1080}
+            fetchPriority="high"
+            decoding="async"
+            className="w-full h-full object-cover object-center origin-center will-change-transform motion-safe:animate-ken-burns"
           />
           <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-black/70 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/80 to-transparent" />
         </div>
 
         <div className="relative max-w-[1400px] mx-auto px-4 md:px-6 h-full flex flex-col items-center justify-center text-center pt-24 pb-20 z-20">
-          <div className="animate-slide-up w-full max-w-4xl">
-            <div className="min-h-[100px] md:min-h-[120px] flex flex-col items-center justify-center mb-8">
-              <div className="animate-slide-fade">
-                <div className="inline-flex items-center gap-2 glass px-5 py-2.5 rounded-full mb-4 border border-white/20">
-                  <Sparkles className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-                  <span className="text-neutral-900 dark:text-white/90 text-sm font-medium">دليل السفر الذكي الأول للمسافر العراقي</span>
+          <div className="motion-safe:animate-slide-up w-full max-w-4xl">
+            <div className="min-h-[120px] md:min-h-[140px] flex flex-col items-center justify-center mb-8 md:mb-10">
+              <div className="motion-safe:animate-slide-fade">
+                <div className="inline-flex items-center gap-2 glass px-5 py-2.5 rounded-full mb-5 border border-white/20">
+                  <Sparkles className="w-4 h-4 text-brand-400" aria-hidden />
+                  <span className="text-white text-sm font-medium">دليل السفر الذكي الأول للمسافر العراقي</span>
                 </div>
                 <div className="on-dark">
-                  <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white mb-3 leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                  <h1
+                    id="hero-heading"
+                    className="hero-title mb-4 text-white text-[1.85rem] sm:text-4xl md:text-5xl lg:text-[3.4rem] font-extrabold leading-[1.35] tracking-tight"
+                  >
                     {HERO_TITLE}
                   </h1>
-                  <p className="text-base md:text-lg text-white/90 max-w-2xl mx-auto leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+                  <p className="text-[15px] sm:text-base md:text-lg text-white max-w-[20.5rem] sm:max-w-xl md:max-w-2xl mx-auto leading-8 md:leading-9 font-medium text-pretty drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]">
                     {HERO_SUBTITLE}
                   </p>
                 </div>

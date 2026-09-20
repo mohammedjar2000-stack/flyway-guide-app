@@ -4,6 +4,7 @@ import { isAuthenticVenueName } from '@/lib/placeAuthenticity';
 import { isCampusBlob, isPreciseVenuePin, listingMatchesCategory, normalizeFuelBakeryListing, osmTagsMatchCategory, sanitizePin } from '@/lib/placePrecision';
 import { bboxSpanMeters, inferTurkeyCityEn, validateCoordinates } from '@/lib/coordIntegrity';
 import { lookupCity } from '@/lib/cityCoordinates';
+import { TURKEY_BBOX } from '@/lib/turkeyScope';
 import { placeGallery, placeKindLabel, resolvePlaceKind } from '@/lib/placeImagery';
 import { financialKind, financialLabel } from '@/lib/financialKind';
 import { osmMediaUrls, transportGalleryFor } from '@/lib/transportPhotos';
@@ -338,6 +339,12 @@ function toListing(el: OsmElement, catDef: OverpassCategoryDef, label?: string):
   if (isCampusBlob(el) || !isPreciseVenuePin(el, catDef.category_key)) return null;
   const coord = getLatLon(el);
   if (!coord) return null;
+  if (
+    coord.lat >= TURKEY_BBOX.south && coord.lat <= TURKEY_BBOX.north
+    && coord.lng >= TURKEY_BBOX.west && coord.lng <= TURKEY_BBOX.east
+  ) {
+    return null;
+  }
   if (!osmTagsMatchCategory(el.tags, catDef.category_key)) return null;
   const leisure = el.tags?.leisure;
   if (leisure === 'park' || leisure === 'garden' || leisure === 'playground' || leisure === 'pitch') return null;
@@ -345,6 +352,7 @@ function toListing(el: OsmElement, catDef: OverpassCategoryDef, label?: string):
   if (amenity === 'car_rental' && catDef.category_key !== 'transport') return null;
   if ((amenity === 'hospital' || amenity === 'clinic' || amenity === 'doctors' || el.tags?.healthcare === 'hospital') && catDef.category_key !== 'hospitals') return null;
   if ((el.tags?.shop === 'mall' || el.tags?.building === 'hospital' || el.tags?.building === 'retail') && catDef.category_key === 'fuel') return null;
+  if (catDef.category_key === 'fuel') return null;
   if (amenity === 'pharmacy' && catDef.category_key !== 'pharmacies') return null;
   if (el.tags?.tourism === 'hotel' && catDef.category_key !== 'hotels') return null;
   if (el.tags?.tourism === 'resort' && catDef.category_key !== 'hotels') return null;

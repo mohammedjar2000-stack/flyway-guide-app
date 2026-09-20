@@ -231,6 +231,10 @@ const AIRPORTS: TurkeyAirportSeed[] = [
   },
 ];
 
+export function turkeyAirportPins(): Array<{ category_key: string; lat: number; lng: number }> {
+  return AIRPORTS.map((airport) => ({ category_key: 'airports', lat: airport.lat, lng: airport.lng }));
+}
+
 export function turkeyAirportListings(): DirectoryListing[] {
   return AIRPORTS.map((airport, index) => {
     const listing: DirectoryListing = {

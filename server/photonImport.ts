@@ -103,7 +103,7 @@ export async function importPhotonCategory(opts: {
   country?: string;
   countryCode?: string;
 }): Promise<{ fetched: number; inserted: number; updated: number }> {
-  const terms = QUERY_TERMS[opts.category] ?? ['pharmacy'];
+  return { fetched: 0, inserted: 0, updated: 0 };
   const allowed = new Set(OSM_VALUES[opts.category] ?? ['pharmacy']);
   const radius = opts.radiusMeters ?? 22000;
   const limit = Math.min(Math.max(opts.limit ?? 80, 50), 400);

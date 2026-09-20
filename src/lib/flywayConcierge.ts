@@ -5,6 +5,8 @@ import { haversineKm } from '@/lib/geo';
 import { listingMatchesProvince } from '@/lib/turkeyScope';
 import { canonicalFuelBakeryKey, listingMatchesCategory, sanitizePin } from '@/lib/placePrecision';
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
+import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
+import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
 import { parseHours } from '@/lib/hours';
 import { IRAQI_MISSIONS, type IraqiMission } from '@/lib/iraqiMissions';
 import { getVaultSnapshot } from '@/lib/placeVault';
@@ -180,17 +182,23 @@ function nearestInCategory(
   prefer247 = false,
 ): ConciergePlace[] {
   const matched = items.filter((item) => {
-    if (category === 'embassy') return item.category_key === 'embassy' || item.category_key === 'police';
+    if (category === 'embassy' && item.category_key !== 'embassy' && item.category_key !== 'police') return false;
+    const hay = `${item.name} ${item.description || ''}`;
+    if (!isCuratedTurkeyPin(item.lat, item.lng, item.category_key, hay)) return false;
     if (category === 'fuel') {
       return canonicalFuelBakeryKey(item) === 'fuel'
         && listingMatchesCategory(item, 'fuel')
-        && isFuelCoordinateClean(item.lat, item.lng);
+        && isFuelCoordinateClean(item.lat, item.lng)
+        && isCuratedTurkeyFuelPin(item.lat, item.lng, `${item.name} ${item.description || ''}`);
     }
     if (category === 'bakeries') {
       return canonicalFuelBakeryKey(item) === 'bakeries' && listingMatchesCategory(item, 'bakeries');
     }
     if (category === 'hospitals' || category === 'pharmacies') {
       return item.category_key === category && listingMatchesCategory(item, category);
+    }
+    if (category === 'embassy') {
+      return item.category_key === 'embassy' || item.category_key === 'police';
     }
     return item.category_key === category && listingMatchesCategory(item, category);
   });

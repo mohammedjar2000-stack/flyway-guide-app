@@ -6,7 +6,9 @@ import { DEFAULT_CATEGORY_KEYS, FETCH_RADIUS_METERS } from '@/lib/mapConfig';
 import { catalogBoundsForCity, resolveCatalogCity } from '@/lib/cityCoordinates';
 import { canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePrecision';
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
-import { isAllTurkeyCity, listingMatchesProvince } from '@/lib/turkeyScope';
+import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
+import { isAllTurkeyCity, isTurkeyCountry, listingMatchesProvince } from '@/lib/turkeyScope';
+import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
 import { civicListRank } from '@/lib/civicRank';
 import { getVerifiedPlaces } from '@/lib/verifiedPlaces';
 import { turkeyAirportListings } from '@/lib/turkeyAirports';
@@ -50,6 +52,7 @@ async function fetchCityCategory(
   cityEn?: string | null,
   live = true,
 ) {
+  if (!live) return [] as DirectoryListing[];
   const catalogCity = cityEn && cityEn !== 'All Turkey' ? cityEn : undefined;
   const [osm, gis, catalog] = await Promise.all([
     live && here
@@ -74,7 +77,9 @@ async function fetchCityCategory(
 function matchesSelectedCategory(item: DirectoryListing, categories: string[]) {
   if (categories.length === 0) return false;
   const key = canonicalFuelBakeryKey(item);
-  if (key === 'fuel' && (!listingMatchesCategory(item, 'fuel') || !isFuelCoordinateClean(item.lat, item.lng))) return false;
+  const hay = `${item.name || ''} ${item.description || ''}`;
+  if (key === 'fuel' && (!listingMatchesCategory(item, 'fuel') || !isFuelCoordinateClean(item.lat, item.lng) || !isCuratedTurkeyFuelPin(item.lat, item.lng, hay))) return false;
+  if (!isCuratedTurkeyPin(item.lat, item.lng, key, hay)) return false;
   if (categories.includes(key)) return true;
   if ((key === 'police' || item.category_key === 'police') && categories.includes('embassy')) return true;
   return false;
@@ -114,7 +119,7 @@ export function usePlacesQuery({
   );
   const cityKey = (resolvedCity?.en || locationCity || locationCountry || '').trim();
   const allTurkey = isAllTurkeyCity(resolvedCity) || isAllTurkeyCity(locationCity);
-  const liveOsm = !allTurkey;
+  const liveOsm = !allTurkey && !isTurkeyCountry(resolvedCity?.country || locationCountry);
 
   const originRef = useRef(origin);
   originRef.current = origin;
@@ -152,7 +157,7 @@ export function usePlacesQuery({
   verifiedRef.current = verifiedAll;
 
   const pharmacyQuery = useQuery({
-    queryKey: ['places-pharmacies', 'v2', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-pharmacies', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -179,7 +184,7 @@ export function usePlacesQuery({
   });
 
   const marketsQuery = useQuery({
-    queryKey: ['places-markets', 'v1', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-markets', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -206,7 +211,7 @@ export function usePlacesQuery({
   });
 
   const hotelsQuery = useQuery({
-    queryKey: ['places-hotels', 'v1', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-hotels', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -233,7 +238,7 @@ export function usePlacesQuery({
   });
 
   const telecomQuery = useQuery({
-    queryKey: ['places-telecom', 'v1', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-telecom', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -260,7 +265,7 @@ export function usePlacesQuery({
   });
 
   const exchangeQuery = useQuery({
-    queryKey: ['places-exchange', 'v1', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-exchange', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -287,7 +292,7 @@ export function usePlacesQuery({
   });
 
   const transportQuery = useQuery({
-    queryKey: ['places-transport', 'v1', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-transport', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -314,7 +319,7 @@ export function usePlacesQuery({
   });
 
   const hospitalsQuery = useQuery({
-    queryKey: ['places-hospitals', 'v1', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-hospitals', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -341,7 +346,7 @@ export function usePlacesQuery({
   });
 
   const policeQuery = useQuery({
-    queryKey: ['places-police', 'v1', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-police', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -368,34 +373,19 @@ export function usePlacesQuery({
   });
 
   const fuelQuery = useQuery({
-    queryKey: ['places-fuel', 'v3', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-fuel', 'v4', cityKey],
     enabled: Boolean(cityBounds),
-    staleTime: 30_000,
+    staleTime: 60 * 60_000,
     gcTime: Infinity,
-    retry: 1,
-    refetchOnMount: true,
+    retry: 0,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const here = originRef.current;
-      const rows = await fetchCityCategory('fuel', liveOsmRef.current ? here : null, cityEnRef.current, liveOsmRef.current);
-      if (here && liveOsmRef.current) {
-        void syncOsmCategory({
-          lat: here.lat,
-          lng: here.lng,
-          category: 'fuel',
-          city: cityEnRef.current || cityRef.current || '',
-          country: countryRef.current || 'Turkey',
-          limit: CITY_SYNC_LIMIT,
-          radius: FETCH_RADIUS_METERS,
-        });
-      }
-      return rows;
-    },
+    queryFn: async () => [] as DirectoryListing[],
   });
 
   const bakeriesQuery = useQuery({
-    queryKey: ['places-bakeries', 'v2', cityKey, cityBounds.south, cityBounds.west],
+    queryKey: ['places-bakeries', 'curated-v1', cityKey],
     enabled: Boolean(cityBounds),
     staleTime: 30_000,
     gcTime: Infinity,
@@ -422,20 +412,17 @@ export function usePlacesQuery({
   });
 
   const airportsQuery = useQuery({
-    queryKey: ['places-airports', 'v1', cityKey],
+    queryKey: ['places-airports', 'curated-v1', cityKey],
     staleTime: 60 * 60_000,
     gcTime: 6 * 60 * 60_000,
     retry: 0,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
-    queryFn: async () => {
-      const catalog = await fetchPlaceCatalog({ category: 'airports', limit: CITY_CATALOG_LIMIT }).catch(() => []);
-      return gisPlacesToListings(catalog);
-    },
+    queryFn: async () => [] as DirectoryListing[],
   });
 
   const query = useQuery({
-    queryKey: ['places-city', 'instant-catalog-v10', cityKey, skipLiveDining ? 1 : 0, cityBounds.south, cityBounds.west],
+    queryKey: ['places-city', 'curated-v1', cityKey, skipLiveDining ? 1 : 0],
     enabled: Boolean(cityBounds),
     staleTime: 15 * 60_000,
     gcTime: Infinity,
@@ -445,9 +432,12 @@ export function usePlacesQuery({
     refetchOnMount: true,
     placeholderData: (previous) => previous,
     queryFn: async () => {
+      if (!liveOsmRef.current) {
+        return { places: [] as DirectoryListing[], fallback: true };
+      }
       const here = originRef.current;
       const local = verifiedRef.current;
-      let cats = DEFAULT_CATEGORY_KEYS;
+      let cats = DEFAULT_CATEGORY_KEYS.filter((key) => key !== 'fuel');
       if (local.filter((item) => item.category_key === 'restaurants').length >= 150) {
         cats = cats.filter((key) => key !== 'restaurants');
       }
@@ -528,7 +518,7 @@ export function usePlacesQuery({
       live,
       dbListings,
     ]);
-    const next = ingestListings([getVaultSnapshot(), fresh], { fromCache: true });
+    const next = ingestListings([fresh, getVaultSnapshot()], { fromCache: true });
     if (next.length > 0) {
       catalogHold.current = next;
       return next;

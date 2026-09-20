@@ -81,8 +81,8 @@ export async function importOsmCategory(opts: {
   country?: string;
   countryCode?: string;
 }): Promise<{ fetched: number; inserted: number; updated: number }> {
+  return { fetched: 0, inserted: 0, updated: 0 };
   const filters = FILTERS[opts.category];
-  if (!filters?.length) return { fetched: 0, inserted: 0, updated: 0 };
   const limit = Math.min(Math.max(opts.limit ?? 80, 50), 400);
   const radius = opts.radiusMeters ?? 22000;
   let elements: OsmElement[] = [];

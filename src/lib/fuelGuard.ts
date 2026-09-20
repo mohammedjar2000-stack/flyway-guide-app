@@ -4,7 +4,7 @@ import { TURKEY_PROVINCE_SEEDS } from '@/lib/turkeyProvinceSeeds';
 
 /** Medical, mall, and pedestrian sites that must never appear as وقود. */
 export const FORBIDDEN_FUEL_VENUE_RE =
-  /hastane|hastanesi|hospital|hastane\b|acil(\s|$)|acil\s*servis|poliklinik|policlinic|clinic|tıbbi|tibbi|medical\s*park|medikal\s*park|memorial|medstar|\bliv\b|anadolu\s*hastane|shemall|şe?mall|\bavm\b|alışveriş|alisveris|\bmall\b|shopping\s*(center|mall)|terra\s*city|markantalya|yaya\s*bölge|pedestrian|karakol|polis\s*merkez|emniyet|مستشفى|عيادة|طوارئ|مول\b|مركز\s*تسوق|كركول|شرطة/i;
+  /hastane|hastanesi|hospital|hastane\b|acil(\s|$)|acil\s*servis|poliklinik|policlinic|clinic|tıbbi|tibbi|medical\s*park|medikal\s*park|memorial|medstar|\bliv\b|anadolu\s*hastane|shemall|şe?mall|\bavm\b|alışveriş|alisveris|\bmall\b|shopping\s*(center|mall)|terra\s*city|markantalya|yaya\s*bölge|pedestrian|karakol|polis\s*merkez|emniyet|مستشفى|عيادة|طوارئ|مول\b|مركز\s*تسوق|كركول|شرطة|sigorta|insurance|atölye|atolye|workshop|tamirhane|oto\s*tamir|kaporta|kaynak\s*(atölye|atolye|sanayi)|genel\s*müdürlük|headquarters|\boffice\b|ofis\s*binas|kurumsal|metal\s*(iş|atölye|sanayi)|demir\s*doğrama|sac\s*iş|acente|plaza\s*ofis|oto\s*sanayi|çelik\s*iş/i;
 
 const MALL_VENUE_RE = /shemall|şe?mall|\bavm\b|\bmall\b|shopping|terra\s*city|markantalya|مول|مركز\s*تسوق/i;
 const MEDICAL_VENUE_RE = /hastane|hospital|acil|poliklinik|clinic|medical\s*park|memorial|medstar|مستشفى|عيادة|طوارئ/i;

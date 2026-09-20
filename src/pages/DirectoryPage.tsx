@@ -9,6 +9,8 @@ import type { DirectoryListing } from '@/types';
 import { CATEGORIES } from '@/types';
 import { pinQuery, sanitizePin, canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePrecision';
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
+import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
+import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
 import { getAllVerifiedPlaces } from '@/lib/verifiedPlaces';
 import FlywayBookButton from '@/components/map/FlywayBookButton';
 import PlaceHoverCard from '@/components/map/PlaceHoverCard';
@@ -67,11 +69,16 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
     const cityHit = lookupCity(locationFilter?.city) || lookupCity(locationFilter?.country);
     const origin = cityHit ? { lat: cityHit.lat, lng: cityHit.lng } : { lat: 41.0082, lng: 28.9784 };
 
+    const turkey = !cityHit
+      || isTurkeyCountry(cityHit.country)
+      || isTurkeyCountry(cityHit.countryEn)
+      || isAllTurkeyCity(cityHit);
     (async () => {
       mergeIntoVault(getAllVerifiedPlaces(), { fromCache: true });
+      if (turkey) return;
       const cityName = cityHit?.en || '';
       void ingestMappedPlaces(getVaultSnapshot()).catch(() => null);
-      const denseCats = ['pharmacies', 'markets', 'hotels', 'telecom', 'exchange', 'transport', 'hospitals', 'police', 'fuel', 'bakeries', 'restaurants', 'mosques', 'nightlife', 'salons'] as const;
+      const denseCats = ['pharmacies', 'markets', 'hotels', 'telecom', 'exchange', 'transport', 'hospitals', 'police', 'bakeries', 'restaurants', 'mosques', 'nightlife', 'salons'] as const;
       for (const category of denseCats) {
         void syncOsmCategory({
           lat: origin.lat,
@@ -79,7 +86,7 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
           category,
           city: cityName,
           country: cityHit?.countryEn || 'Turkey',
-          limit: category === 'transport' || category === 'fuel' || category === 'bakeries' ? 400 : 250,
+          limit: category === 'transport' || category === 'bakeries' ? 400 : 250,
           radius: FETCH_RADIUS_METERS,
         }).then(async (osmCounts) => {
           if (cancelled) return;
@@ -133,7 +140,9 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
         return false;
       }
       if (canonicalFuelBakeryKey(l) !== activeCategory && !(activeCategory === 'embassy' && l.category_key === 'police')) return false;
-      if (activeCategory === 'fuel' && (!listingMatchesCategory(l, 'fuel') || !isFuelCoordinateClean(l.lat, l.lng))) return false;
+      const hay = `${l.name} ${l.description || ''}`;
+      if (activeCategory === 'fuel' && (!listingMatchesCategory(l, 'fuel') || !isFuelCoordinateClean(l.lat, l.lng) || !isCuratedTurkeyFuelPin(l.lat, l.lng, hay))) return false;
+      if (!isCuratedTurkeyPin(l.lat, l.lng, canonicalFuelBakeryKey(l), hay)) return false;
       const key = listingDedupeKey(l);
       if (seen.has(key)) return false;
       seen.add(key);

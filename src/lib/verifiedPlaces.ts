@@ -9,11 +9,13 @@ import { placeGallery, placeKindLabel, resolvePlaceKind, type PlaceKind } from '
 import { isAuthenticVenueName, isGenericSeedName } from '@/lib/placeAuthenticity';
 import { pinListing } from '@/lib/placePrecision';
 import { normalizeTurkeyEmergencyPhone } from '@/lib/turkeyEmergency';
-import { ISTANBUL_CIVIC_SEEDS } from '@/lib/istanbulCivicSeeds';
+import { type CivicSeed } from '@/lib/istanbulCivicSeeds';
 import { TURKEY_PROVINCE_SEEDS } from '@/lib/turkeyProvinceSeeds';
-import { TURKEY_DENSE_SEEDS } from '@/lib/turkeyDenseSeeds';
-import { turkeyAirportListings } from '@/lib/turkeyAirports';
+import { turkeyAirportListings, turkeyAirportPins } from '@/lib/turkeyAirports';
 import { isAllTurkeyCity } from '@/lib/turkeyScope';
+import { TURKEY_FUEL_STATIONS } from '@/lib/turkeyFuelStations';
+import { TURKEY_HUB_SEEDS, premierProvinceSeeds } from '@/lib/turkeyHubCatalog';
+import { registerCuratedTurkeyPins } from '@/lib/turkeyCuratedGuard';
 
 export interface VerifiedPlace {
   category_key: string;
@@ -45,6 +47,95 @@ function v(
   return { category_key, name, name_en, address, lat, lng, hours, phone, rating };
 }
 
+function fuelVerified(city: string): VerifiedPlace[] {
+  return TURKEY_FUEL_STATIONS.filter((row) => row.city === city).map((row) => ({
+    category_key: 'fuel',
+    name: row.name,
+    name_en: row.name_en,
+    address: row.address,
+    hours: row.hours,
+    phone: row.phone,
+    lat: row.lat,
+    lng: row.lng,
+    rating: row.rating,
+    slug: row.slug,
+  }));
+}
+
+const PREMIER_LIMIT = 15;
+
+function fromCivic(rows: CivicSeed[]): VerifiedPlace[] {
+  return rows.map((row) => ({
+    category_key: row.category_key,
+    name: row.name,
+    name_en: row.name_en,
+    address: row.address,
+    hours: row.hours,
+    phone: row.phone,
+    lat: row.lat,
+    lng: row.lng,
+    rating: row.rating,
+    website: row.website,
+  }));
+}
+
+function hotelVerified(rows: Array<{
+  name: string;
+  name_en: string;
+  address: string;
+  phone: string;
+  lat: number;
+  lng: number;
+  rating: number;
+  slug?: string;
+  place_kind?: PlaceKind;
+  images?: string[];
+}>): VerifiedPlace[] {
+  return rows.slice(0, PREMIER_LIMIT).map((hotel) => ({
+    category_key: 'hotels',
+    name: hotel.name,
+    name_en: hotel.name_en,
+    address: hotel.address,
+    hours: '24/7',
+    phone: hotel.phone,
+    lat: hotel.lat,
+    lng: hotel.lng,
+    rating: hotel.rating,
+    slug: hotel.slug,
+    place_kind: hotel.place_kind,
+    images: hotel.images,
+  }));
+}
+
+function diningVerified(rows: Array<{
+  name: string;
+  name_en: string;
+  address: string;
+  hours: string;
+  phone: string;
+  lat: number;
+  lng: number;
+  rating: number;
+  slug?: string;
+  place_kind?: PlaceKind;
+  images?: string[];
+}>): VerifiedPlace[] {
+  return rows.slice(0, PREMIER_LIMIT).map((venue) => ({
+    category_key: 'restaurants',
+    name: venue.name,
+    name_en: venue.name_en,
+    address: venue.address,
+    hours: venue.hours,
+    phone: venue.phone,
+    lat: venue.lat,
+    lng: venue.lng,
+    rating: venue.rating,
+    slug: venue.slug,
+    place_kind: venue.place_kind,
+    images: venue.images,
+  }));
+}
+
 const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
   istanbul: [
     v('hospitals', 'المستشفى الأمريكي', 'American Hospital Istanbul', 'Güzelbahçe Sokak No:20, Nişantaşı, Şişli', 41.04861, 28.99444, '24/7', '+90 212 444 3777', 4.7),
@@ -70,34 +161,8 @@ const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
     v('pharmacies', 'صيدلية أسكودار', 'Uskudar Eczanesi', 'Hakimiyeti Milliye Caddesi, Üsküdar', 41.02350, 29.01500, '08:00 - 23:00', '', 4.3),
     v('pharmacies', 'صيدلية ليفنت', 'Levent Eczanesi', 'Büyükdere Caddesi, Levent, Beşiktaş', 41.08050, 29.01380, '09:00 - 22:00', '', 4.3),
     v('pharmacies', 'صيدلية باكركوي', 'Bakirkoy Eczanesi', 'İstanbul Caddesi, Bakırköy', 40.98150, 28.87220, '08:00 - 24:00', '', 4.2),
-    ...ISTANBUL_HOTEL_SEEDS.map((hotel) => ({
-      category_key: 'hotels',
-      name: hotel.name,
-      name_en: hotel.name_en,
-      address: hotel.address,
-      hours: '24/7',
-      phone: hotel.phone,
-      lat: hotel.lat,
-      lng: hotel.lng,
-      rating: hotel.rating,
-      slug: hotel.slug,
-      place_kind: hotel.place_kind,
-      images: hotel.images,
-    })),
-    ...ISTANBUL_DINING_SEEDS.map((venue) => ({
-      category_key: 'restaurants',
-      name: venue.name,
-      name_en: venue.name_en,
-      address: venue.address,
-      hours: venue.hours,
-      phone: venue.phone,
-      lat: venue.lat,
-      lng: venue.lng,
-      rating: venue.rating,
-      slug: venue.slug,
-      place_kind: venue.place_kind,
-      images: venue.images,
-    })),
+    ...hotelVerified(ISTANBUL_HOTEL_SEEDS),
+    ...diningVerified(ISTANBUL_DINING_SEEDS),
     v('mosques', 'جامع السلطان أحمد', 'Blue Mosque Sultan Ahmed', 'Atmeydanı Caddesi, Sultanahmet, Fatih', 41.00541, 28.97681, '05:00 - 22:00', '', 4.9),
     v('mosques', 'جامع السليمانية', 'Suleymaniye Mosque', 'Süleymaniye Mahallesi, Fatih', 41.01613, 28.96407, '05:00 - 22:00', '', 4.9),
     v('mosques', 'جامع الفاتح', 'Fatih Mosque Istanbul', 'Fevzi Paşa Caddesi, Fatih', 41.01972, 28.94997, '05:00 - 22:00', '', 4.8),
@@ -131,19 +196,11 @@ const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
     v('police', 'مركز شرطة بشكطاش', 'Besiktas Police Station', 'Sinanpaşa Mahallesi, Beşiktaş', 41.04280, 29.00560, '24/7', '112', 4.1),
     v('police', 'مركز شرطة شيشلي', 'Sisli Police Station', 'Halaskargazi Caddesi, Şişli', 41.06020, 28.98750, '24/7', '112', 4.1),
     v('police', 'مركز شرطة أسكودار', 'Uskudar Police Station', 'Doğancılar Caddesi, Üsküdar', 41.02280, 29.01560, '24/7', '112', 4.1),
-    v('fuel', 'محطة أوبيت تقسيم', 'Opet Taksim', 'Tarlabaşı Bulvarı, Beyoğlu', 41.03840, 28.97420, '24/7', '', 4.0),
-    v('fuel', 'شل بشكطاش', 'Shell Besiktas', 'Barbaros Bulvarı, Beşiktaş', 41.04450, 29.00850, '24/7', '', 4.1),
-    v('fuel', 'بي بي كاديكوي', 'BP Kadikoy', 'Rıhtım Caddesi, Kadıköy', 40.98850, 29.03020, '24/7', '', 4.0),
-    v('fuel', 'أوبيت مجيديه كوي', 'Opet Mecidiyekoy', 'Büyükdere Caddesi, Şişli', 41.06650, 28.99280, '24/7', '', 4.0),
-    v('exchange', 'صرافة تقسيم', 'Taksim Doviz', 'İstiklal Caddesi, Beyoğlu', 41.03580, 28.98240, '09:00 - 21:00', '', 4.2),
-    v('exchange', 'صرافة السلطان أحمد', 'Sultanahmet Doviz', 'Divan Yolu Caddesi, Fatih', 41.00840, 28.97690, '09:00 - 21:00', '', 4.2),
-    v('exchange', 'صرافة كاديكوي', 'Kadikoy Doviz', 'Bahariye Caddesi, Kadıköy', 40.99040, 29.02490, '09:00 - 20:00', '', 4.2),
     v('transport', 'أفيس تقسيم', 'Avis Taksim Car Rental', 'Sıraselviler Caddesi, Beyoğlu', 41.03540, 28.98480, '08:00 - 20:00', '+90 212 297 9560', 4.2),
     v('transport', 'محطة سركجي', 'Sirkeci Railway Station', 'Ankara Caddesi, Eminönü', 41.01530, 28.97690, '24/7', '', 4.5),
     v('transport', 'مرفأ كاديكوي', 'Kadikoy Ferry Terminal', 'Rıhtım Caddesi, Kadıköy', 40.99280, 29.02310, '06:00 - 00:00', '', 4.6),
     v('bakeries', 'غلّوغلو قركوي', 'Karakoy Gulluoglu', 'Mumhane Caddesi, Karaköy', 41.02305, 28.97540, '07:00 - 23:00', '+90 212 293 0910', 4.6),
     v('bakeries', 'حافظ مصطفى سركجي', 'Hafiz Mustafa Sirkeci', 'Hamidiye Caddesi No:84, Sirkeci', 41.01650, 28.97580, '07:00 - 01:00', '+90 212 513 3610', 4.6),
-    v('salons', 'صالون نيشانتشي', 'Nisantasi Hair Studio', 'Abdi İpekçi Caddesi, Nişantaşı', 41.04920, 28.99480, '10:00 - 21:00', '', 4.3),
     v('telecom', 'تركسل تقسيم', 'Turkcell Taksim', 'İstiklal Caddesi, Beyoğlu', 41.03520, 28.98190, '10:00 - 22:00', '', 4.2),
     v('telecom', 'فودافون الاستقلال', 'Vodafone Istiklal', 'İstiklal Caddesi, Beyoğlu', 41.03450, 28.97980, '10:00 - 22:00', '', 4.2),
     v('nightlife', '360 إسطنبول', '360 Istanbul', 'İstiklal Caddesi No:163, Beyoğlu', 41.03340, 28.97920, '18:00 - 02:00', '+90 212 251 1042', 4.3),
@@ -153,8 +210,8 @@ const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
       website: 'https://mofa.gov.iq',
     },
     v('embassy', 'قنصلية الولايات المتحدة — إسطنبول', 'US Consulate General Istanbul', 'Üç Şehitler Sokak, Istinye, Sarıyer', 41.10470, 29.01690, '08:00 - 17:00', '+90 212 335 9000', 4.3),
-    ...ISTANBUL_CIVIC_SEEDS,
-    ...TURKEY_DENSE_SEEDS.istanbul,
+    ...fuelVerified('istanbul'),
+    ...fromCivic(TURKEY_HUB_SEEDS.istanbul),
   ],
   trabzon: [
     v('hospitals', 'مستشفى فارابي الجامعي', 'KTU Farabi Hospital', 'Farabi Caddesi, Üniversite Mahallesi, Ortahisar, Trabzon', 40.99238, 39.76938, '24/7', '+90 462 377 5777', 4.5),
@@ -169,7 +226,6 @@ const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
     v('markets', 'فوروم طرابزون', 'Forum Trabzon', 'Devlet Karayolu Caddesi, Kalkınma Mahallesi, Ortahisar', 40.99980, 39.76139, '10:00 - 22:00', '+90 462 444 0559', 4.5),
     v('restaurants', 'مطعم فيشلاند', 'Fishland Restaurant Trabzon', 'Uzun Sokak, Ortahisar', 41.00590, 39.72640, '11:00 - 00:00', '', 4.3),
     v('police', 'مديرية أمن طرابزون', 'Trabzon Police Headquarters', 'Kahramanmaraş Caddesi, Ortahisar', 41.00480, 39.72410, '24/7', '112', 4.1),
-    v('fuel', 'محطة أوبيت طرابزون', 'Opet Trabzon Sahil', 'Sahil Yolu, Ortahisar', 41.00320, 39.71950, '24/7', '', 4.0),
     v('attractions', 'متحف طرابزون', 'Trabzon Museum Kostaki Mansion', 'Zeytinlik Caddesi, Ortahisar', 41.00590, 39.72080, '09:00 - 17:00', '', 4.5),
     v('attractions', 'كوشك أتاتورك', 'Ataturk Pavilion Trabzon', 'Soğuksu, Ortahisar', 40.99980, 39.70740, '08:00 - 17:00', '', 4.6),
     v('mosques', 'جامع أورتاهيسار', 'Ortahisar Mosque Trabzon', 'Kaleiçi, Ortahisar', 41.00500, 39.72020, '05:00 - 22:00', '', 4.6),
@@ -179,8 +235,8 @@ const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
     v('salons', 'صالون ميدان', 'Meydan Kuafor Trabzon', 'Meydan, Ortahisar', 41.00550, 39.72690, '10:00 - 21:00', '', 4.2),
     v('telecom', 'تركسل ميدان', 'Turkcell Trabzon Meydan', 'Meydan, Ortahisar', 41.00540, 39.72720, '09:00 - 21:00', '', 4.2),
     v('exchange', 'صرافة ميدان طرابزون', 'Meydan Doviz Trabzon', 'Uzun Sokak, Ortahisar', 41.00580, 39.72650, '09:00 - 19:00', '', 4.2),
-    ...TURKEY_PROVINCE_SEEDS.trabzon,
-    ...TURKEY_DENSE_SEEDS.trabzon,
+    ...fuelVerified('trabzon'),
+    ...fromCivic(TURKEY_HUB_SEEDS.trabzon),
   ],
   antalya: [
     v('hospitals', 'مستشفى ميموريال أنطاليا', 'Memorial Antalya Hospital', 'Zafer Mah. Yıldırım Beyazıt Cad. No:91, Kepez', 36.89110, 30.71060, '24/7', '+90 242 314 6666', 4.6),
@@ -191,69 +247,36 @@ const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
     v('mosques', 'جامع يلدرم بايزيد', 'Yildirim Bayezid Mosque Antalya', 'Kaleiçi, Muratpaşa', 36.88490, 30.70540, '05:00 - 22:00', '', 4.7),
     v('markets', 'مول مارك أنطاليا', 'MarkAntalya AVM', 'Kızıltoprak, Muratpaşa', 36.88720, 30.70210, '10:00 - 22:00', '', 4.5),
     v('attractions', 'البلدة القديمة كاليتشي', 'Kaleici Old Town Antalya', 'Kaleiçi, Muratpaşa', 36.88500, 30.70460, '00:00 - 24:00', '', 4.8),
-    ...TURKEY_PROVINCE_SEEDS.antalya,
-    ...TURKEY_DENSE_SEEDS.antalya,
+    ...fuelVerified('antalya'),
+    ...fromCivic(TURKEY_HUB_SEEDS.antalya),
   ],
   ankara: [
     v('hospitals', 'مستشفى حاجت تبه', 'Hacettepe University Hospital', 'Hacettepe Mahallesi, Altındağ', 39.93180, 32.86340, '24/7', '+90 312 305 5000', 4.6),
     v('hospitals', 'مدينة بيلkent الطبية', 'Ankara Bilkent City Hospital', 'Üniversiteler Mahallesi, Çankaya', 39.89150, 32.75480, '24/7', '+90 312 552 6000', 4.5),
     v('pharmacies', 'صيدلية كيزيلاي', 'Kizilay Eczanesi', 'Atatürk Bulvarı, Çankaya', 39.92080, 32.85410, '08:00 - 23:00', '', 4.3),
-    ...ANKARA_HOTEL_SEEDS.map((hotel) => ({
-      category_key: 'hotels',
-      name: hotel.name,
-      name_en: hotel.name_en,
-      address: hotel.address,
-      hours: '24/7',
-      phone: hotel.phone,
-      lat: hotel.lat,
-      lng: hotel.lng,
-      rating: hotel.rating,
-      slug: hotel.slug,
-      place_kind: hotel.place_kind,
-      images: hotel.images,
-    })),
-    ...ANKARA_DINING_SEEDS.map((venue) => ({
-      category_key: 'restaurants',
-      name: venue.name,
-      name_en: venue.name_en,
-      address: venue.address,
-      hours: venue.hours,
-      phone: venue.phone,
-      lat: venue.lat,
-      lng: venue.lng,
-      rating: venue.rating,
-      slug: venue.slug,
-      place_kind: venue.place_kind,
-      images: venue.images,
-    })),
+    ...hotelVerified(ANKARA_HOTEL_SEEDS),
+    ...diningVerified(ANKARA_DINING_SEEDS),
     v('markets', 'كيفن أنقرة', 'Kentpark AVM Ankara', 'Eskişehir Yolu, Çankaya', 39.90010, 32.77580, '10:00 - 22:00', '', 4.5),
-    ...TURKEY_PROVINCE_SEEDS.ankara,
-    ...TURKEY_DENSE_SEEDS.ankara,
+    ...fuelVerified('ankara'),
+    ...fromCivic(TURKEY_HUB_SEEDS.ankara),
   ],
   izmir: [
     v('hospitals', 'مستشفى إيجة الجامعي', 'Ege University Hospital', 'Kazımdirik Mahallesi, Bornova', 38.46120, 27.22040, '24/7', '+90 232 390 0000', 4.5),
     v('hospitals', 'ميديكال بارك إزمير', 'Medical Park Izmir Hospital', 'Yeni Girne Bulvarı, Karşıyaka', 38.46280, 27.11050, '24/7', '+90 232 399 5050', 4.4),
     v('pharmacies', 'صيدلية كوناك', 'Konak Eczanesi', 'Konak Meydanı, Konak', 38.41920, 27.12870, '08:00 - 23:00', '', 4.2),
     v('hotels', 'سويس أوتيل إزمير', 'Swissotel Buyuk Efes Izmir', 'Gaziosmanpaşa Bulvarı No:1, Alsancak', 38.43280, 27.14090, '24/7', '+90 232 414 0000', 4.6),
-    v('hotels', 'كييا إزمير', 'Kaya Izmir Thermal Convention', 'Ilıca Mahallesi, Çeşme', 38.32150, 26.30580, '24/7', '', 4.5),
     v('markets', 'فوروم بورنوفا', 'Forum Bornova', 'Kazımdirik, Bornova', 38.45060, 27.21140, '10:00 - 22:00', '', 4.5),
-    ...TURKEY_PROVINCE_SEEDS.izmir,
-    ...TURKEY_DENSE_SEEDS.izmir,
+    ...fuelVerified('izmir'),
+    ...fromCivic(TURKEY_HUB_SEEDS.izmir),
   ],
-  bursa: [
-    ...TURKEY_PROVINCE_SEEDS.bursa,
-    ...TURKEY_DENSE_SEEDS.bursa,
-  ],
-  bodrum: [
-    ...TURKEY_PROVINCE_SEEDS.bodrum,
-    ...TURKEY_DENSE_SEEDS.bodrum,
-  ],
-  nevsehir: TURKEY_PROVINCE_SEEDS.nevsehir,
-  gaziantep: TURKEY_PROVINCE_SEEDS.gaziantep,
-  adana: TURKEY_PROVINCE_SEEDS.adana,
-  konya: TURKEY_PROVINCE_SEEDS.konya,
-  alanya: TURKEY_PROVINCE_SEEDS.alanya,
-  samsun: TURKEY_PROVINCE_SEEDS.samsun,
+  bursa: premierProvinceSeeds(TURKEY_PROVINCE_SEEDS.bursa),
+  bodrum: premierProvinceSeeds(TURKEY_PROVINCE_SEEDS.bodrum),
+  nevsehir: premierProvinceSeeds(TURKEY_PROVINCE_SEEDS.nevsehir),
+  gaziantep: premierProvinceSeeds(TURKEY_PROVINCE_SEEDS.gaziantep),
+  adana: premierProvinceSeeds(TURKEY_PROVINCE_SEEDS.adana),
+  konya: premierProvinceSeeds(TURKEY_PROVINCE_SEEDS.konya),
+  alanya: premierProvinceSeeds(TURKEY_PROVINCE_SEEDS.alanya),
+  samsun: premierProvinceSeeds(TURKEY_PROVINCE_SEEDS.samsun),
   dubai: [
     v('hospitals', 'مستشفى راشد', 'Rashid Hospital Dubai', 'Oud Metha Road, Umm Hurair 2, Bur Dubai', 25.24418, 55.31889, '24/7', '+971 4 219 2000', 4.5),
     v('hospitals', 'مستشفى دبي', 'Dubai Hospital', 'Al Khaleej Street, Al Baraha, Deira', 25.28480, 55.32155, '24/7', '+971 4 219 5000', 4.5),
@@ -420,6 +443,20 @@ const VERIFIED_BY_CITY: Record<string, VerifiedPlace[]> = {
   ],
 };
 
+const TURKEY_CITY_KEYS = new Set([
+  'istanbul', 'ankara', 'izmir', 'antalya', 'trabzon', 'bursa', 'bodrum',
+  'nevsehir', 'gaziantep', 'adana', 'konya', 'alanya', 'samsun', 'mersin', 'kayseri',
+]);
+
+registerCuratedTurkeyPins([
+  ...Object.entries(VERIFIED_BY_CITY).flatMap(([key, seeds]) => (
+    TURKEY_CITY_KEYS.has(key)
+      ? seeds.map((seed) => ({ category_key: seed.category_key, lat: seed.lat, lng: seed.lng }))
+      : []
+  )),
+  ...turkeyAirportPins(),
+]);
+
 function categoryLabel(key: string): string {
   if (key === 'police') return 'شرطة';
   return CATEGORIES.find((c) => c.key === key)?.shortLabel || key;
@@ -458,6 +495,7 @@ function cityKeyFromLookup(en?: string): string | null {
     'Kuala Lumpur': 'kualalumpur',
     Bangkok: 'bangkok',
     Tokyo: 'tokyo',
+    Uzungol: 'trabzon',
   };
   return map[en] ?? en.toLowerCase().replace(/\s+/g, '');
 }

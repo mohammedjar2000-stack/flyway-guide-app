@@ -118,6 +118,9 @@ function richer(prev: DirectoryListing, next: DirectoryListing): DirectoryListin
 }
 
 function upsertMemory(item: DirectoryListing): boolean {
+  const pinned = pinListing(item);
+  if (!pinned) return false;
+  item = pinned;
   const prev = byId.get(item.id);
   if (!prev) {
     byId.set(item.id, compactListing(item));
@@ -180,7 +183,10 @@ export function ingestListings(buckets: DirectoryListing[][], opts?: { fromCache
   const ingest = (item: DirectoryListing) => {
     if (fromCache) {
       if (!isStoredListing(item)) return;
-      take(item);
+      const pinned = pinListing(item);
+      if (!pinned) return;
+      if (nearby(pinned).some((existing) => isNearDuplicate(existing, pinned))) return;
+      take(pinned);
       return;
     }
     if (!isAuthenticVenueName(item.name, item.category_key) && !isAuthenticVenueName(item.description, item.category_key)) {
@@ -228,6 +234,12 @@ export function mergeIntoVault(rows: DirectoryListing[], opts?: { fromCache?: bo
   let changed = 0;
   for (const item of prepared) {
     if (upsertMemory(item)) changed += 1;
+  }
+  const dropped = sanitizeCatalogInMemory();
+  if (dropped.length) {
+    changed += dropped.length;
+    void openDb().then((db) => { if (db) void deleteMany(db, dropped); });
+    writeLocalBackup(getVaultSnapshot());
   }
   if (changed && opts?.persist !== false) schedulePersist();
   if (changed) notify();
@@ -302,17 +314,16 @@ function deleteMany(db: IDBDatabase, ids: string[]): Promise<void> {
   });
 }
 
-function sanitizeFuelInMemory(): string[] {
+function sanitizeCatalogInMemory(): string[] {
   const drop: string[] = [];
   for (const item of [...byId.values()]) {
-    if (item.category_key !== 'fuel') continue;
     const pinned = pinListing(item);
-    if (!pinned || pinned.category_key !== 'fuel') {
+    if (!pinned) {
       byId.delete(item.id);
       drop.push(item.id);
       continue;
     }
-    if (pinned.lat !== item.lat || pinned.lng !== item.lng || pinned.image !== item.image) {
+    if (pinned.lat !== item.lat || pinned.lng !== item.lng || pinned.image !== item.image || pinned.category_key !== item.category_key) {
       byId.set(item.id, compactListing(pinned));
       dirty.add(item.id);
     }
@@ -414,7 +425,7 @@ export async function bootPlaceVault(): Promise<void> {
     for (const item of incoming.filter(isStoredListing)) {
       upsertMemory(item);
     }
-    const dropped = sanitizeFuelInMemory();
+    const dropped = sanitizeCatalogInMemory();
     if (dropped.length && db) await deleteMany(db, dropped);
     if (dropped.length) writeLocalBackup(getVaultSnapshot());
     notify();

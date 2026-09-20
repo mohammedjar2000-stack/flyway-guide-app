@@ -4,6 +4,8 @@ import { CATEGORIES } from '@/types';
 import { lookupCity, type CityCoordinate } from '@/lib/cityCoordinates';
 import { canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePrecision';
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
+import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
+import { isCuratedTurkeyPin } from '@/lib/turkeyCuratedGuard';
 import { isAllTurkeyCity, isTurkeyCountry, listingMatchesProvince } from '@/lib/turkeyScope';
 import { bootPlaceVault, getVaultRevision, getVaultSnapshot, subscribeVault } from '@/lib/placeVault';
 
@@ -71,7 +73,9 @@ export function tallyScopedCategoryCounts(
     if (!item.category_key || !Number.isFinite(item.lat) || !Number.isFinite(item.lng)) continue;
     if (constrain && !listingMatchesProvince(item as DirectoryListing, cityHit, allTurkey)) continue;
     const categoryKey = canonicalFuelBakeryKey(item);
-    if (categoryKey === 'fuel' && (!listingMatchesCategory(item, 'fuel') || !isFuelCoordinateClean(item.lat, item.lng))) continue;
+    const hay = `${item.name || ''} ${(item as DirectoryListing).description || ''}`;
+    if (categoryKey === 'fuel' && (!listingMatchesCategory(item, 'fuel') || !isFuelCoordinateClean(item.lat, item.lng) || !isCuratedTurkeyFuelPin(item.lat, item.lng, hay))) continue;
+    if (!isCuratedTurkeyPin(item.lat, item.lng, categoryKey, hay)) continue;
     const key = listingDedupeKey({ ...item, category_key: categoryKey });
     if (seen.has(key)) continue;
     seen.add(key);
