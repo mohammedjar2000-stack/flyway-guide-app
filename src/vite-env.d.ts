@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY?: string;
   readonly VITE_ADMIN_PIN?: string;
   readonly VITE_GOOGLE_PLACES_API_KEY?: string;
+  readonly VITE_GEOAPIFY_API_KEY?: string;
 }
 
 interface ImportMeta {

@@ -8,6 +8,11 @@ import {
   maskGooglePlacesKey,
   pingGooglePlaces,
 } from '@/services/googlePlaces';
+import {
+  isGeoapifyConfigured,
+  maskGeoapifyKey,
+  pingGeoapify,
+} from '@/services/geoapify';
 
 export type ApiHealthStatus = 'connected' | 'error' | 'disconnected';
 
@@ -112,20 +117,52 @@ export async function probeTurkeyHotels(): Promise<ApiHealthCard> {
 export async function probeGisBackend(): Promise<ApiHealthCard> {
   const hit = await timedJson('/api/health', { headers: { Accept: 'application/json' } });
   const body = (hit.body && typeof hit.body === 'object') ? hit.body as Record<string, unknown> : {};
-  const connected = hit.ok && body.ok === true;
+  const gisUp = hit.ok && body.ok === true;
+  const gisConfigured = Boolean(body.geoapifyConfigured);
+  const clientConfigured = isGeoapifyConfigured();
+  const ping = clientConfigured ? await pingGeoapify() : null;
+  const geoConnected = Boolean(ping?.ok && !ping?.invalid);
+  const connected = geoConnected || gisUp;
+
+  if (!clientConfigured && !gisConfigured && !gisUp) {
+    return {
+      id: 'gis-geoapify',
+      name: 'خادم GIS / Geoapify',
+      nameEn: 'Flyway GIS + Geoapify Places',
+      description: 'مفتاح VITE_GEOAPIFY_API_KEY لخرائط وأماكن Geoapify',
+      status: hit.status === 0 ? 'disconnected' : 'error',
+      records: 0,
+      lastSync: null,
+      latencyMs: hit.latencyMs,
+      detail: 'VITE_GEOAPIFY_API_KEY غير مضبوط والخادم 8787 غير متصل',
+      log: clipLog({ configured: false, gis: body }),
+    };
+  }
+
   return {
     id: 'gis-geoapify',
     name: 'خادم GIS / Geoapify',
     nameEn: 'Flyway GIS + Geoapify Places',
-    description: 'واجهة /api المحلية ومفتاح Geoapify من جهة الخادم فقط',
-    status: connected ? 'connected' : hit.status === 0 ? 'disconnected' : 'error',
-    records: Number(body.placeCount) || 0,
+    description: 'مفتاح VITE_GEOAPIFY_API_KEY لخرائط وأماكن Geoapify',
+    status: ping?.invalid ? 'error' : connected ? 'connected' : 'error',
+    records: ping?.records || Number(body.placeCount) || 0,
     lastSync: connected ? Date.now() : null,
-    latencyMs: hit.latencyMs,
-    detail: connected
-      ? `المخزن ${String(body.store || 'unknown')} · Geoapify ${body.geoapifyConfigured ? 'مفعّل' : 'غير مضبوط'}`
-      : 'الخادم 8787 غير متصل أو أعاد خطأ',
-    log: clipLog(body),
+    latencyMs: ping?.latencyMs ?? hit.latencyMs,
+    detail: ping?.invalid
+      ? 'مفتاح Geoapify مرفوض'
+      : geoConnected
+        ? `مفتاح Geoapify نشط (${maskGeoapifyKey()})${ping?.records ? ` · ${ping.records} نتيجة حية` : ''}${gisUp ? ' · GIS متصل' : ''}`
+        : gisUp
+          ? `المخزن ${String(body.store || 'unknown')} · Geoapify ${gisConfigured ? 'مفعّل' : 'غير مضبوط'}`
+          : 'تعذر التحقق من Geoapify',
+    log: clipLog({
+      clientConfigured,
+      gisConfigured,
+      gisUp,
+      key: maskGeoapifyKey(),
+      ping: ping?.body || null,
+      gis: body,
+    }),
   };
 }
 
