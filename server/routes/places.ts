@@ -121,7 +121,7 @@ placesRouter.post('/sync', async (req, res) => {
       return;
     }
     if (!env.geoapifyApiKey) {
-      res.status(503).json({ error: 'GEOAPIFY_API_KEY is not configured' });
+      res.status(503).json({ error: 'GEOAPIFY_API_KEY or VITE_GEOAPIFY_API_KEY is not configured' });
       return;
     }
     const lat = parseCoord(req.query.lat ?? req.body?.lat, 'lat', true)!;

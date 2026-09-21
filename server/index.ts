@@ -27,6 +27,7 @@ app.get('/api/health', async (_req, res) => {
     store: pg ? 'postgis' : 'local',
     placeCount: pg ? total : filePlaceCount(),
     geoapifyConfigured: Boolean(env.geoapifyApiKey),
+    geoapifyKeySource: env.geoapifyKeySource,
     googlePlacesConfigured: Boolean(env.googlePlacesApiKey),
     rapidApiConfigured: Boolean(env.rapidApiKey),
   });
@@ -40,7 +41,9 @@ app.use((_req, res) => {
 });
 
 app.listen(env.apiPort, '127.0.0.1', () => {
-  console.log(`Flyway GIS API listening on http://127.0.0.1:${env.apiPort}`);
+  console.log(
+    `Flyway GIS API listening on http://127.0.0.1:${env.apiPort} (geoapify: ${env.geoapifyApiKey ? env.geoapifyKeySource : 'missing'})`,
+  );
   void bootstrapPoiStore();
 });
 
