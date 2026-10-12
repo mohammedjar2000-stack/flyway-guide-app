@@ -378,17 +378,54 @@ export async function probeLocalStorage(): Promise<ApiHealthCard> {
 }
 
 export async function probeAllApis(): Promise<ApiHealthCard[]> {
-  const [hotels, gis, supabasePoi, overpass, nominatim, storage] = await Promise.all([
-    probeTurkeyHotels(),
-    probeGisBackend(),
-    probeSupabasePoi(),
-    probeOverpass(),
-    probeNominatim(),
-    probeLocalStorage(),
-  ]);
-  const google = await probeGooglePlaces(gis);
-  const rapid = await probeRapidApi(gis);
-  const cards = [hotels, gis, google, rapid, supabasePoi, overpass, nominatim, storage];
+  return probeLocalFastPath();
+}
+
+function idleLiveCard(
+  id: string,
+  name: string,
+  nameEn: string,
+  description: string,
+): ApiHealthCard {
+  return {
+    id,
+    name,
+    nameEn,
+    description,
+    status: 'disconnected',
+    records: 0,
+    lastSync: null,
+    latencyMs: null,
+    detail: 'موقوف محلياً — لن يُستدعى تلقائياً. فعّل المصدر ثم اضغط اختبار الاتصال عند الحاجة.',
+    log: { paused: true, autoProbe: false },
+  };
+}
+
+export async function probeLocalFastPath(): Promise<ApiHealthCard[]> {
+  const snapshot = readHealthSnapshot()?.cards || [];
+  const [hotels, storage] = await Promise.all([probeTurkeyHotels(), probeLocalStorage()]);
+  const byId = new Map(snapshot.map((card) => [card.id, card]));
+  const paused = (id: string, name: string, nameEn: string, description: string) => {
+    const prev = byId.get(id);
+    if (prev) {
+      return {
+        ...prev,
+        detail: `موقوف محلياً · آخر حالة: ${prev.detail}`,
+        log: { paused: true, previous: prev.log },
+      };
+    }
+    return idleLiveCard(id, name, nameEn, description);
+  };
+  const cards = [
+    hotels,
+    paused('gis-geoapify', 'خادم GIS / Geoapify', 'Flyway GIS + Geoapify Places', 'كتالوج GIS وبلاط Geoapify'),
+    paused('google-places', 'Google Places', 'Google Cloud Places', 'واجهة أماكن Google'),
+    paused('rapidapi-booking', 'RapidAPI / Booking', 'RapidAPI', 'واجهات الحجز الخارجية'),
+    paused('supabase-poi', 'Supabase POI', 'Supabase', 'قاعدة الأماكن السحابية'),
+    paused('overpass', 'OpenStreetMap Overpass', 'Overpass API', 'جلب الأماكن الحية من OSM'),
+    paused('nominatim', 'Nominatim', 'Nominatim Geocoding', 'الترميز الجغرافي'),
+    storage,
+  ];
   persistSnapshot(cards);
   return cards;
 }

@@ -14,7 +14,6 @@ import ViewportWatcher from '@/components/map/ViewportWatcher';
 import { makeDestIcon, makeOriginIcon } from '@/lib/mapIcons';
 import { MAP_FOCUS_ZOOM, MAP_MAX_ZOOM, MAP_MIN_ZOOM } from '@/lib/mapConfig';
 import { remainingRouteCoords, type RoutePoint } from '@/lib/routing';
-import { geoapifyTileUrlTemplate } from '@/services/geoapify';
 
 interface RouteData {
   coordinates: [number, number][];
@@ -336,8 +335,6 @@ function MapView({
   const handleViewport = useCallback(onViewportChange, [onViewportChange]);
   const showSkeleton = tilesLoading && listings.length === 0;
   const showDataSpinner = Boolean(dataLoading) && listings.length === 0 && !showSkeleton && !loadingExpired;
-  const geoapifyTiles = geoapifyTileUrlTemplate();
-
   useEffect(() => {
     if (!dataLoading) {
       setLoadingExpired(false);
@@ -364,8 +361,8 @@ function MapView({
         worldCopyJump
       >
         <TileLayer
-          url={geoapifyTiles || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'}
-          attribution={geoapifyTiles ? '&copy; Geoapify &copy; OpenStreetMap' : '&copy; OpenStreetMap'}
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution="&copy; OpenStreetMap"
           minZoom={MAP_MIN_ZOOM}
           maxZoom={MAP_MAX_ZOOM}
           maxNativeZoom={19}

@@ -1,4 +1,5 @@
 import type { DirectoryListing } from '@/types';
+import { isLiveApiEnabled } from '@/lib/liveApiGate';
 import { sanitizeBounds, type MapBounds } from '@/lib/geo';
 import { isAuthenticVenueName } from '@/lib/placeAuthenticity';
 import { isCampusBlob, isPreciseVenuePin, listingMatchesCategory, normalizeFuelBakeryListing, osmTagsMatchCategory, sanitizePin } from '@/lib/placePrecision';
@@ -341,7 +342,7 @@ function toListing(el: OsmElement, catDef: OverpassCategoryDef, label?: string):
   if (!coord) return null;
   if (
     coord.lat >= TURKEY_BBOX.south && coord.lat <= TURKEY_BBOX.north
-    && coord.lng >= TURKEY_BBOX.west && coord.lng <= TURKEY_BBOX.east
+    && coord.lon >= TURKEY_BBOX.west && coord.lon <= TURKEY_BBOX.east
   ) {
     return null;
   }
@@ -501,6 +502,7 @@ async function postOverpass(
   timeoutMs: number,
   external?: AbortSignal,
 ): Promise<OsmElement[]> {
+  if (!isLiveApiEnabled('overpass')) return [];
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   const onAbort = () => controller.abort();
@@ -617,31 +619,11 @@ async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise
 }
 
 async function fetchByArea(
-  area: QueryArea,
-  categories: string[],
-  maxResults = 250,
+  _area: QueryArea,
+  _categories: string[],
+  _maxResults = 250,
 ): Promise<DirectoryListing[]> {
-  const uniqueCats = Array.from(new Set(categories)).filter((key) => CATEGORY_TO_OSM[key]);
-  if (uniqueCats.length === 0) return [];
-  if (uniqueCats.length === 1) {
-    const cat = uniqueCats[0];
-    const cap = Math.max(maxResults, PER_CATEGORY_LIMIT[cat] ?? MIN_PER_CATEGORY);
-    return fetchCombined(area, uniqueCats, cap);
-  }
-  const batches = await mapPool(uniqueCats, FETCH_CONCURRENCY, async (cat) => {
-    const cap = Math.max(PER_CATEGORY_LIMIT[cat] ?? MIN_PER_CATEGORY, MIN_PER_CATEGORY);
-    return fetchCombined(area, [cat], cap);
-  });
-  const merged: DirectoryListing[] = [];
-  const seen = new Set<string>();
-  for (const batch of batches) {
-    for (const place of batch) {
-      if (seen.has(place.id)) continue;
-      seen.add(place.id);
-      merged.push(place);
-    }
-  }
-  return merged;
+  return [];
 }
 
 export async function fetchPlacesFromOverpass(

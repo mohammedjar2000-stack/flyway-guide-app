@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DirectoryListing } from '@/types';
 import { haversineKm, roundBounds, type MapBounds } from '@/lib/geo';
-import { fetchPlacesFromOverpass, fetchPlacesInBounds } from '@/services/overpassApi';
 import { isAuthenticVenueName, isNearDuplicate } from '@/lib/placeAuthenticity';
 import { canonicalFuelBakeryKey, pinListing } from '@/lib/placePrecision';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -43,57 +42,8 @@ export function useViewportPlaces({
   const debouncedSearch = useDebouncedValue(search.trim(), 280);
 
   useEffect(() => {
-    if (!debouncedKey || categories.length === 0) {
-      setTooZoomedOut(false);
-      return;
-    }
-
-    const [south, west, north, east, zoomStr] = debouncedKey.split(':');
-    const currentBounds: MapBounds = {
-      south: Number(south),
-      west: Number(west),
-      north: Number(north),
-      east: Number(east),
-    };
-    const currentZoom = Number(zoomStr);
-    void currentZoom;
-
     setTooZoomedOut(false);
-    const id = ++requestId.current;
-    setLoading(true);
-    setError(false);
-
-    const rounded = roundBounds(currentBounds);
-    const here = originRef.current;
-
-    (async () => {
-      let places: DirectoryListing[] = [];
-      if (here) {
-        const nearby = await Promise.all(
-          categories.map((key) => fetchPlacesFromOverpass(here.lat, here.lng, key)),
-        );
-        places = nearby.flat();
-      }
-      if (places.length < 50) {
-        const extra = await fetchPlacesInBounds(rounded, categories, 500);
-        places = [...places, ...extra];
-      }
-      if (id !== requestId.current) return;
-      setOsmById((prev) => {
-        const next = new Map(prev);
-        for (const [key, item] of next) {
-          if (!categories.includes(item.category_key)) next.delete(key);
-        }
-        for (const place of places) next.set(place.id, place);
-        return next;
-      });
-      setError(places.length === 0);
-      setLoading(false);
-    })().catch(() => {
-      if (id !== requestId.current) return;
-      setError(true);
-      setLoading(false);
-    });
+    setLoading(false);
   }, [debouncedKey, categories, categoryKey]);
 
   const listings = useMemo(() => {

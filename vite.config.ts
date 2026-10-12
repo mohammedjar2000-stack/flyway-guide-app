@@ -19,7 +19,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['lucide-react', 'country-state-city'],
-    include: ['leaflet.markercluster'],
+    exclude: ['lucide-react'],
+    include: ['leaflet.markercluster', 'country-state-city'],
   },
 });

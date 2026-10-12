@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Minus, Navigation, Plus, Route, SlidersHorizontal, X,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { haversineKm, type MapBounds } from '@/lib/geo';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { usePlacesQuery } from '@/hooks/usePlacesQuery';
@@ -26,11 +25,7 @@ import { clearRouteDraft, readRouteDraft, rememberPlace, writeRouteDraft } from 
 import { isLocalRoutePair, planRoute, pointFromCoords, type RoutePoint, type RouteResult, type TravelMode } from '@/lib/routing';
 import CityPickerBar from '@/components/map/CityPickerBar';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { lookupCity } from '@/lib/cityCoordinates';
-import { isAllTurkeyCity } from '@/lib/turkeyScope';
-import { fetchPoiCatalog } from '@/services/poiService';
-import { fetchPlaceCatalog, gisPlacesToListings } from '@/services/gisApi';
-import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, replaceWithDatabaseListings, subscribeVault } from '@/lib/placeVault';
+import { bootPlaceVault, getVaultSnapshot, subscribeVault } from '@/lib/placeVault';
 
 interface MapNavigatorProps {
   searchLocation?: AppLocation | null;
@@ -90,34 +85,13 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
 
   useEffect(() => {
     let cancelled = false;
-    const ctrl = new AbortController();
-    const timer = window.setTimeout(() => ctrl.abort(), 4000);
-    const cityEn = isAllTurkeyCity(searchLocation?.city) ? undefined : lookupCity(searchLocation?.city)?.en;
-    void bootPlaceVault();
-    setDbListings(getVaultSnapshot());
-    (async () => {
-      const [poiRows, directoryRows, gisRows] = await Promise.all([
-        fetchPoiCatalog({
-          city: cityEn,
-          country: searchLocation?.country || 'تركيا',
-        }).catch(() => [] as DirectoryListing[]),
-        Promise.resolve(
-          supabase.from('directory_listings').select('*').order('sort_order').abortSignal(ctrl.signal)
-            .then(({ data }) => (data ?? []) as DirectoryListing[]),
-        ).catch(() => [] as DirectoryListing[]),
-        fetchPlaceCatalog({ city: cityEn, limit: 5000 }).catch(() => []),
-      ]);
+    void bootPlaceVault().then(() => {
       if (cancelled) return;
-      if (poiRows.length) replaceWithDatabaseListings(poiRows);
-      const incoming = [...gisPlacesToListings(gisRows), ...directoryRows];
-      if (incoming.length) mergeIntoVault(incoming, { fromCache: true });
       setDbListings(getVaultSnapshot());
       setDbLoading(false);
-    })();
+    });
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
-      ctrl.abort();
     };
   }, [searchLocation?.city]);
 
@@ -668,33 +642,33 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
 
       {!navigating && (
         <div className="map-overlay-dock absolute z-[55] pointer-events-none">
-          <div dir="ltr" className="on-light pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-[0_10px_28px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-neutral-900/95 dark:text-white">
+          <div dir="ltr" className="map-zoom-stack pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-900 shadow-[0_10px_28px_rgba(15,23,42,0.28)]">
             <button
               type="button"
               onClick={() => mapCommands.current?.zoomIn()}
-              className="w-11 h-11 flex items-center justify-center text-neutral-800 hover:bg-slate-100 cursor-pointer dark:text-white dark:hover:bg-white/10"
+              className="map-zoom-btn w-11 h-11 flex items-center justify-center text-slate-900 hover:bg-slate-100 cursor-pointer"
               aria-label="تكبير"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-5 h-5 stroke-[2.5]" />
             </button>
             <button
               type="button"
               onClick={() => mapCommands.current?.zoomOut()}
-              className="w-11 h-11 flex items-center justify-center text-neutral-800 hover:bg-slate-100 cursor-pointer border-t border-slate-200 dark:text-white dark:hover:bg-white/10 dark:border-white/10"
+              className="map-zoom-btn w-11 h-11 flex items-center justify-center text-slate-900 hover:bg-slate-100 cursor-pointer border-t border-slate-200"
               aria-label="تصغير"
             >
-              <Minus className="w-5 h-5" />
+              <Minus className="w-5 h-5 stroke-[2.5]" />
             </button>
             <button
               type="button"
               onClick={locateMe}
-              className={`w-11 h-11 flex items-center justify-center cursor-pointer border-t border-slate-200 dark:border-white/10 ${
-                followUser ? 'bg-brand-400 text-neutral-950' : 'text-neutral-800 hover:bg-slate-100 dark:text-white dark:hover:bg-white/10'
+              className={`map-zoom-btn w-11 h-11 flex items-center justify-center cursor-pointer border-t border-slate-200 ${
+                followUser ? 'bg-brand-400 text-neutral-950' : 'text-slate-900 hover:bg-slate-100'
               }`}
               aria-label={followUser ? 'إيقاف موقعي الحالي' : 'موقعي الحالي'}
               aria-pressed={followUser}
             >
-              <Navigation className="w-5 h-5" />
+              <Navigation className="w-5 h-5 stroke-[2.5]" />
             </button>
             <button
               type="button"
@@ -702,15 +676,15 @@ export default function MapNavigator({ searchLocation, onLocationChange, onCamer
                 setFiltersOpen(false);
                 setDirectionsOpen((open) => !open);
               }}
-              className={`w-11 h-11 flex items-center justify-center cursor-pointer border-t border-slate-200 dark:border-white/10 ${
+              className={`w-11 h-11 flex items-center justify-center cursor-pointer border-t border-slate-200 ${
                 directionsOpen
                   ? 'bg-[#e8f0fe] text-[#1a73e8]'
-                  : 'text-[#1a73e8] hover:bg-slate-100 dark:hover:bg-white/10'
+                  : 'text-[#1a73e8] hover:bg-slate-100'
               }`}
               aria-label="من وإلى"
               aria-pressed={directionsOpen}
             >
-              <Route className="w-5 h-5" />
+              <Route className="w-5 h-5 stroke-[2.5]" />
             </button>
           </div>
         </div>

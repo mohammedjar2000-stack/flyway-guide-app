@@ -85,73 +85,6 @@ export function roundBounds(b: MapBounds, precision = 3): MapBounds {
   return { south: r(b.south), west: r(b.west), north: r(b.north), east: r(b.east) };
 }
 
-export function radiusMetersFromBounds(b: MapBounds): number {
-  const km = haversineKm(b.south, b.west, b.north, b.east) / 2;
-  return Math.min(12000, Math.max(800, Math.round(km * 1000)));
-}
-
-const OSM_CATEGORY_MAP: Record<string, { category_key: string; category_label: string }> = {
-  pharmacy: { category_key: 'pharmacies', category_label: 'صيدلية' },
-  hospital: { category_key: 'hospitals', category_label: 'مستشفى' },
-  clinic: { category_key: 'hospitals', category_label: 'عيادة' },
-  doctors: { category_key: 'hospitals', category_label: 'عيادة طبية' },
-  dentist: { category_key: 'hospitals', category_label: 'عيادة أسنان' },
-  cafe: { category_key: 'restaurants', category_label: 'مقهى' },
-  restaurant: { category_key: 'restaurants', category_label: 'مطعم' },
-  fast_food: { category_key: 'restaurants', category_label: 'وجبات سريعة' },
-  mosque: { category_key: 'mosques', category_label: 'مسجد' },
-  place_of_worship: { category_key: 'mosques', category_label: 'مصلى' },
-  supermarket: { category_key: 'markets', category_label: 'سوبر ماركت' },
-  mall: { category_key: 'markets', category_label: 'مركز تسوق' },
-  convenience: { category_key: 'markets', category_label: 'بقالة' },
-  shop: { category_key: 'markets', category_label: 'متجر' },
-  hotel: { category_key: 'hotels', category_label: 'فندق' },
-  guest_house: { category_key: 'hotels', category_label: 'نزل' },
-  resort: { category_key: 'hotels', category_label: 'منتجع' },
-  tourism: { category_key: 'attractions', category_label: 'معلم سياحي' },
-  museum: { category_key: 'attractions', category_label: 'متحف' },
-  gallery: { category_key: 'attractions', category_label: 'معرض فني' },
-  fuel: { category_key: 'fuel', category_label: 'محطة وقود' },
-  bakery: { category_key: 'bakeries', category_label: 'مخبز' },
-  bank: { category_key: 'exchange', category_label: 'مصرف' },
-  bureau_de_change: { category_key: 'exchange', category_label: 'صرافة' },
-  hairdresser: { category_key: 'salons', category_label: 'صالون حلاقة' },
-  beauty: { category_key: 'salons', category_label: 'صالون تجميل' },
-  car_rental: { category_key: 'transport', category_label: 'تأجير سيارات' },
-  taxi: { category_key: 'transport', category_label: 'محطة تاكسي' },
-  bus_station: { category_key: 'transport', category_label: 'محطة حافلات' },
-  subway_station: { category_key: 'transport', category_label: 'محطة مترو' },
-  train_station: { category_key: 'transport', category_label: 'محطة قطار' },
-  police: { category_key: 'embassy', category_label: 'مركز شرطة' },
-  embassy: { category_key: 'embassy', category_label: 'سفارة' },
-  nightclub: { category_key: 'nightlife', category_label: 'نادي ليلي' },
-  bar: { category_key: 'nightlife', category_label: 'بار' },
-  electronics: { category_key: 'telecom', category_label: 'متجر إلكترونيات' },
-  mobile_phone: { category_key: 'telecom', category_label: 'اتصالات' },
-};
-
-const SEARCH_TAGS = Object.keys(OSM_CATEGORY_MAP).join('|');
-
-interface OsmElement {
-  id: number;
-  lat: number;
-  lon: number;
-  tags?: Record<string, string>;
-}
-
-interface OsmResponse {
-  elements?: OsmElement[];
-}
-
-function mapOsmTags(tags: Record<string, string> | undefined): { category_key: string; category_label: string } | null {
-  if (!tags) return null;
-  for (const [key, val] of Object.entries(tags)) {
-    if (OSM_CATEGORY_MAP[val]) return OSM_CATEGORY_MAP[val];
-    if (OSM_CATEGORY_MAP[key]) return OSM_CATEGORY_MAP[key];
-  }
-  return null;
-}
-
 const SPREAD_RADIUS_DEG = 0.004;
 
 function hashId(id: string): number {
@@ -199,75 +132,15 @@ export function spreadCoordinates<T extends { id: string; lat: number; lng: numb
 }
 
 export async function fetchNearbyFromOSM(
-  lat: number,
-  lng: number,
-  radiusMeters: number = 4000,
+  _lat: number,
+  _lng: number,
+  _radiusMeters: number = 4000,
 ): Promise<DirectoryListing[]> {
-  const query = `[out:json][timeout:10];(
-    node["amenity"~"${SEARCH_TAGS}"](around:${radiusMeters},${lat},${lng});
-    node["shop"~"${SEARCH_TAGS}"](around:${radiusMeters},${lat},${lng});
-    node["tourism"~"${SEARCH_TAGS}"](around:${radiusMeters},${lat},${lng});
-  );out body;`;
-
-  try {
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
-    });
-    if (!res.ok) return [];
-    const json: OsmResponse = await res.json();
-    if (!json.elements) return [];
-
-    const seen = new Set<string>();
-    const results: DirectoryListing[] = [];
-
-    for (const el of json.elements) {
-      const cat = mapOsmTags(el.tags);
-      if (!cat) continue;
-      const name = el.tags?.name || el.tags?.['name:en'] || el.tags?.['name:ar'];
-      if (!name) continue;
-      const key = `${el.lat.toFixed(5)},${el.lon.toFixed(5)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const hours = el.tags?.opening_hours || '';
-      const phone = el.tags?.phone || el.tags?.['contact:phone'] || '';
-      const addrParts = [
-        el.tags?.['addr:street'],
-        el.tags?.['addr:housenumber'],
-        el.tags?.['addr:city'],
-        el.tags?.['addr:country'],
-      ].filter(Boolean);
-
-      results.push({
-        id: `osm-${el.id}`,
-        category_key: cat.category_key,
-        category_label: cat.category_label,
-        name,
-        description: el.tags?.description || '',
-        country_name: el.tags?.['addr:country'] || '',
-        city: el.tags?.['addr:city'] || '',
-        address: addrParts.join(' '),
-        image: '',
-        rating: 0,
-        price_level: '',
-        tags: [],
-        proximity_note: '',
-        phone,
-        hours,
-        is_featured: false,
-        sort_order: 0,
-        lat: el.lat,
-        lng: el.lon,
-        metro_station_name: '',
-        metro_walk_minutes: 0,
-        review_count: 0,
-        created_at: '',
-      });
-    }
-    return results;
-  } catch {
-    return [];
-  }
+  return [];
 }
+
+export function radiusMetersFromBounds(b: MapBounds): number {
+  const km = haversineKm(b.south, b.west, b.north, b.east) / 2;
+  return Math.min(12000, Math.max(800, Math.round(km * 1000)));
+}
+

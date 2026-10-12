@@ -114,8 +114,22 @@ export function useCategoryCounts(scope?: CountScope) {
   const [revision, setRevision] = useState(getVaultRevision);
 
   useEffect(() => {
-    void bootPlaceVault().then(() => setRevision(getVaultRevision()));
-    return subscribeVault(() => setRevision(getVaultRevision()));
+    let idleId = 0;
+    let timeoutId = 0;
+    const boot = () => {
+      void bootPlaceVault().then(() => setRevision(getVaultRevision()));
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(boot, { timeout: 1800 });
+    } else {
+      timeoutId = window.setTimeout(boot, 600);
+    }
+    const unsub = subscribeVault(() => setRevision(getVaultRevision()));
+    return () => {
+      if (idleId && 'cancelIdleCallback' in window) window.cancelIdleCallback(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+      unsub();
+    };
   }, []);
 
   const countsResult = useMemo(

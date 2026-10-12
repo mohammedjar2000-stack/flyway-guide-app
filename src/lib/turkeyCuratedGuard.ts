@@ -4,6 +4,14 @@ import { isCuratedTurkeyFuelPin } from '@/lib/turkeyFuelStations';
 
 export const HOTEL_API_SOURCE_TAG = 'live-hotel-api';
 export const HOTEL_API_ID_PREFIX = 'hotel-api-';
+export const CORE_ID_PREFIX = 'core-';
+
+export function isTrustedCoreListing(item: { id?: string; tags?: string[] | null }): boolean {
+  if (typeof item.id === 'string' && (item.id.startsWith(CORE_ID_PREFIX) || item.id.startsWith(HOTEL_API_ID_PREFIX))) {
+    return true;
+  }
+  return Array.isArray(item.tags) && item.tags.includes('flyway-core');
+}
 
 export function isTrustedHotelApiListing(item: {
   id?: string;
@@ -24,7 +32,7 @@ export function listingPassesTurkeyPinGuard(item: {
   description?: string;
   tags?: string[] | null;
 }): boolean {
-  if (isTrustedHotelApiListing(item)) return true;
+  if (isTrustedHotelApiListing(item) || isTrustedCoreListing(item)) return true;
   return isCuratedTurkeyPin(
     item.lat,
     item.lng,

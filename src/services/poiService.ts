@@ -4,6 +4,7 @@ import { lookupCity } from '@/lib/cityCoordinates';
 import { DATASET_CACHE_KEY, DATASET_META_KEY, ISTANBUL_DATASET_VERSION } from '@/lib/datasetVersion';
 import { categoryLabelAr, isPlaceCategory } from '@/lib/poiIdentity';
 import { pinListing } from '@/lib/placePrecision';
+import { isLiveApiEnabled } from '@/lib/liveApiGate';
 import { gisPlaceToListing, type GisPlace } from '@/services/gisApi';
 
 const PLACE_COLUMNS = [
@@ -126,7 +127,7 @@ export function writeCachedDatasetVersion(version: number, count: number): void 
 }
 
 export async function fetchDatasetVersion(): Promise<number> {
-  if (!isSupabaseConfigured()) return ISTANBUL_DATASET_VERSION;
+  if (!isLiveApiEnabled('supabase') || !isSupabaseConfigured()) return ISTANBUL_DATASET_VERSION;
   const rpc = await supabase.rpc('get_dataset_version', { p_key: DATASET_META_KEY });
   if (typeof rpc.data === 'number' && Number.isFinite(rpc.data)) return rpc.data;
   const table = await supabase.from('dataset_meta').select('version').eq('key', DATASET_META_KEY).maybeSingle();
@@ -213,7 +214,7 @@ async function paginatePlaces(apply: (from: number, to: number) => unknown): Pro
 }
 
 export async function fetchPoiCatalog(query: PoiQuery = {}): Promise<DirectoryListing[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (!isLiveApiEnabled('supabase') || !isSupabaseConfigured()) return [];
   try {
     const city = cityFilter(query.city);
     const rows = await paginatePlaces((from, to) => {
@@ -250,7 +251,7 @@ export async function fetchPoiCatalog(query: PoiQuery = {}): Promise<DirectoryLi
 }
 
 export async function fetchPoiNearby(query: NearbyPoiQuery): Promise<DirectoryListing[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (!isLiveApiEnabled('supabase') || !isSupabaseConfigured()) return [];
   try {
     const city = cityFilter(query.city);
     const { data, error } = await supabase.rpc('places_nearby', {

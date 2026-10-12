@@ -6,6 +6,7 @@ import type { DirectoryListing } from '@/types';
 import { queryMatchScore } from '@/lib/cityCoordinates';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { pinQuery } from '@/lib/placePrecision';
+import { geocodePlace } from '@/services/geocode';
 import { getRecentPlaces, rememberPlace, type RecentPlace } from '@/lib/routeHistory';
 import {
   formatRouteDistance,

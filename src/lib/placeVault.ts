@@ -12,10 +12,11 @@ const DB_NAME = 'flyway-guide-places';
 const DB_VERSION = 1;
 const LISTINGS_STORE = 'listings';
 const META_STORE = 'meta';
-const LS_BACKUP_KEY = 'flyway.vault.backup.v1';
+const LS_BACKUP_KEY = 'flyway.vault.backup.v2';
+const LS_BACKUP_LEGACY_KEY = 'flyway.vault.backup.v1';
 const LS_META_KEY = 'flyway.vault.meta.v1';
 const PERSIST_DEBOUNCE_MS = 450;
-const BACKUP_CAP = 6000;
+const BACKUP_CAP = 20000;
 
 const byId = new Map<string, DirectoryListing>();
 const dirty = new Set<string>();
@@ -229,26 +230,7 @@ export function ingestListings(buckets: DirectoryListing[][], opts?: { fromCache
 }
 
 export function replaceWithDatabaseListings(rows: DirectoryListing[]): number {
-  const incoming = ingestListings([rows], { fromCache: true });
-  if (incoming.length === 0) return 0;
-  const keepIds = new Set(incoming.map((row) => row.id));
-  const removed: string[] = [];
-  for (const row of incoming) {
-    for (const existing of [...byId.values()]) {
-      if (keepIds.has(existing.id)) continue;
-      if (!isNearDuplicate(existing, row)) continue;
-      byId.delete(existing.id);
-      removed.push(existing.id);
-    }
-    upsertMemory(row);
-  }
-  if (removed.length) {
-    void openDb().then((db) => { if (db) void deleteMany(db, removed); });
-  }
-  notify();
-  schedulePersist();
-  writeLocalBackup(getVaultSnapshot());
-  return incoming.length;
+  return mergeIntoVault(rows, { fromCache: true });
 }
 
 export function mergeIntoVault(rows: DirectoryListing[], opts?: { fromCache?: boolean; persist?: boolean }): number {
@@ -341,15 +323,9 @@ function deleteMany(db: IDBDatabase, ids: string[]): Promise<void> {
 function sanitizeCatalogInMemory(): string[] {
   const drop: string[] = [];
   for (const item of [...byId.values()]) {
-    const pinned = pinListing(item);
-    if (!pinned) {
+    if (!Number.isFinite(Number(item.lat)) || !Number.isFinite(Number(item.lng))) {
       byId.delete(item.id);
       drop.push(item.id);
-      continue;
-    }
-    if (pinned.lat !== item.lat || pinned.lng !== item.lng || pinned.image !== item.image || pinned.category_key !== item.category_key) {
-      byId.set(item.id, compactListing(pinned));
-      dirty.add(item.id);
     }
   }
   return drop;
@@ -380,15 +356,23 @@ function putMany(db: IDBDatabase, rows: DirectoryListing[]): Promise<void> {
   });
 }
 
-function readLocalBackup(): DirectoryListing[] {
+function parseBackupRaw(raw: string | null): DirectoryListing[] {
+  if (!raw) return [];
   try {
-    const raw = localStorage.getItem(LS_BACKUP_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { rows?: unknown[] };
+    const parsed = JSON.parse(raw) as { rows?: unknown[]; enc?: boolean };
     return (parsed.rows || []).filter(isStoredListing);
   } catch {
     return [];
   }
+}
+
+function readLocalBackup(): DirectoryListing[] {
+  const current = parseBackupRaw(localStorage.getItem(LS_BACKUP_KEY));
+  const legacy = parseBackupRaw(localStorage.getItem(LS_BACKUP_LEGACY_KEY));
+  if (!legacy.length) return current;
+  const byKey = new Map(legacy.map((row) => [row.id, row]));
+  for (const row of current) byKey.set(row.id, row);
+  return [...byKey.values()];
 }
 
 function writeLocalBackup(rows: DirectoryListing[]) {
@@ -430,11 +414,9 @@ function bindLifecycle() {
 }
 
 function seedModules() {
-  if (seeded) return;
-  seeded = true;
-  if (byId.size > 0) return;
   const seeds = getAllVerifiedPlaces();
   for (const item of ingestListings([seeds], { fromCache: true })) upsertMemory(item);
+  seeded = true;
 }
 
 export async function bootPlaceVault(): Promise<void> {
@@ -450,6 +432,21 @@ export async function bootPlaceVault(): Promise<void> {
       upsertMemory(item);
     }
     seedModules();
+    try {
+      const { peekTurkeyHotelCache } = await import('@/services/hotelApi');
+      const hotels = peekTurkeyHotelCache();
+      if (hotels.length) {
+        for (const item of ingestListings([hotels], { fromCache: true })) upsertMemory(item);
+      }
+    } catch {
+      /* local catalog only */
+    }
+    try {
+      const { loadCoreCatalogListings } = await import('@/lib/coreCatalog');
+      for (const item of loadCoreCatalogListings()) upsertMemory(item);
+    } catch {
+      /* bundled core optional */
+    }
     const dropped = sanitizeCatalogInMemory();
     if (dropped.length && db) await deleteMany(db, dropped);
     if (dropped.length) writeLocalBackup(getVaultSnapshot());

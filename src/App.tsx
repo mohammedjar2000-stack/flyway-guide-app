@@ -1,18 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { ThemeProvider } from '@/context/ThemeContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Header from '@/components/Header';
-import ChatWidget from '@/components/ChatWidget';
 import type { ConciergeAction, ConciergeLocale, ConciergePlace } from '@/lib/flywayConcierge';
-import MapNavigator from '@/components/MapNavigator';
 import HomePage from '@/pages/HomePage';
-import DirectoryPage from '@/pages/DirectoryPage';
-import VisasPage from '@/pages/VisasPage';
-import HotelsPage from '@/pages/HotelsPage';
-import InsurancePage from '@/pages/InsurancePage';
-import RewardsPage from '@/pages/RewardsPage';
-import DiscoverIraqPage from '@/pages/DiscoverIraqPage';
-import AdminDashboard from '@/components/AdminDashboard';
 import type { PageKey } from '@/types';
 import type { IraqiMission } from '@/lib/iraqiMissions';
 import { lookupCity, lookupDistrict, locationsEqual, locationIdentityEqual, resolveMapFocus, type AppLocation } from '@/lib/cityCoordinates';
@@ -24,6 +15,15 @@ import {
   writeSession,
   type AppSession,
 } from '@/lib/appSession';
+
+const MapNavigator = lazy(() => import('@/components/MapNavigator'));
+const DirectoryPage = lazy(() => import('@/pages/DirectoryPage'));
+const VisasPage = lazy(() => import('@/pages/VisasPage'));
+const HotelsPage = lazy(() => import('@/pages/HotelsPage'));
+const InsurancePage = lazy(() => import('@/pages/InsurancePage'));
+const RewardsPage = lazy(() => import('@/pages/RewardsPage'));
+const DiscoverIraqPage = lazy(() => import('@/pages/DiscoverIraqPage'));
+const ChatWidget = lazy(() => import('@/components/ChatWidget'));
 
 function directoryFilterFromSession(session: AppSession) {
   if (!session.city && !session.country && !session.district) return null;
@@ -37,7 +37,7 @@ function directoryFilterFromSession(session: AppSession) {
 
 function AppContent() {
   const initial = useMemo(() => resolveInitialSession(), []);
-  const [page, setPage] = useState<PageKey>(initial.view);
+  const [page, setPage] = useState<PageKey>(initial.view === 'admin' ? 'home' : initial.view);
   const [mapResultsOpen, setMapResultsOpen] = useState(false);
   const [appLocation, setAppLocation] = useState<AppLocation>(() => locationFromFallbackSession(initial));
   const [directoryFilter, setDirectoryFilter] = useState<{ country?: string; city?: string; district?: string; category?: string } | null>(
@@ -46,7 +46,7 @@ function AppContent() {
 
   useEffect(() => {
     writeSession({
-      view: initial.view,
+      view: initial.view === 'admin' ? 'home' : initial.view,
       cats: initial.cats,
       q: initial.q,
       ...locationToSessionPatch(locationFromFallbackSession(initial)),
@@ -54,7 +54,8 @@ function AppContent() {
   }, [initial]);
 
   useEffect(() => subscribeSession((session) => {
-    setPage((prev) => (prev === session.view ? prev : session.view));
+    const view = session.view === 'admin' ? 'home' : session.view;
+    setPage((prev) => (prev === view ? prev : view));
     setAppLocation((prev) => {
       const next = locationFromFallbackSession(session);
       if (locationIdentityEqual(prev, next)) return prev;
@@ -66,9 +67,10 @@ function AppContent() {
   }), []);
 
   const persistPage = useCallback((nextPage: PageKey) => {
-    setPage(nextPage);
-    if (nextPage !== 'navigator') setMapResultsOpen(false);
-    writeSession({ view: nextPage }, 'push');
+    const view = nextPage === 'admin' ? 'home' : nextPage;
+    setPage(view);
+    if (view !== 'navigator') setMapResultsOpen(false);
+    writeSession({ view }, 'push');
   }, []);
 
   const handleNavigate = (p: PageKey) => persistPage(p);
@@ -241,7 +243,15 @@ function AppContent() {
     insurance: <InsurancePage />,
     rewards: <RewardsPage />,
     'discover-iraq': <DiscoverIraqPage />,
-    admin: <AdminDashboard />,
+    admin: (
+      <HomePage
+        onNavigate={handleNavigate}
+        onLocationChange={handleLocationChange}
+        onSearchNavigate={handleSearchNavigate}
+        onDirectoryNavigate={handleDirectoryNavigate}
+        currentLocation={appLocation}
+      />
+    ),
   };
 
   return (
@@ -249,11 +259,13 @@ function AppContent() {
       <Header currentPage={page} onNavigate={handleNavigate} currentCountry={appLocation.country} onOpenMission={handleOpenMission} />
       <main>
         <ErrorBoundary label="الصفحة" resetKey={page}>
-          {pages[page]}
+          <Suspense fallback={<div className="min-h-[40vh]" aria-hidden="true" />}>
+            {pages[page]}
+          </Suspense>
         </ErrorBoundary>
       </main>
       <ErrorBoundary label="مساعد Flyway الذكي" resetKey={`${appLocation.city || ''}:${page}`}>
-        {page !== 'admin' && (
+        <Suspense fallback={null}>
           <ChatWidget
             lifted={page === 'navigator' && mapResultsOpen}
             city={appLocation.city}
@@ -264,7 +276,7 @@ function AppContent() {
             onAction={handleConciergeAction}
             onFocusLocale={handleConciergeLocale}
           />
-        )}
+        </Suspense>
       </ErrorBoundary>
       {page !== 'navigator' && (
         <footer className="text-center py-6 border-t border-neutral-200 dark:border-white/10 text-neutral-500 dark:text-zinc-500 text-xs">

@@ -139,7 +139,8 @@ function roundCoord(value?: number) {
 }
 
 export function sanitizeSession(input: Partial<AppSession>): AppSession {
-  const view = isPageKey(input.view) ? input.view : 'home';
+  const rawView = isPageKey(input.view) ? input.view : 'home';
+  const view = rawView === 'admin' ? 'home' : rawView;
   const cats = (input.cats || []).filter((c) => CAT_SET.has(c));
   return {
     view,
@@ -238,7 +239,9 @@ export function writeSession(
 export function subscribeSession(listener: Listener) {
   listeners.add(listener);
   ensureHistoryListener();
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 function ensureHistoryListener() {

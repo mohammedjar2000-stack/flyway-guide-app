@@ -38,11 +38,11 @@ function InfoField({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-neutral-50 border border-neutral-200 px-3 py-2.5 flex items-start gap-2.5 dark:bg-white/5 dark:border-white/10">
-      <span className="text-neutral-800 dark:text-zinc-200 shrink-0 mt-0.5">{icon}</span>
+    <div className="place-detail-field rounded-2xl px-3 py-2.5 flex items-start gap-2.5">
+      <span className="place-detail-icon shrink-0 mt-0.5">{icon}</span>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] text-neutral-600 dark:text-zinc-300 font-semibold">{label}</p>
-        <div className="text-sm text-neutral-900 dark:text-white font-semibold leading-snug mt-0.5">
+        <p className="place-detail-label text-[11px] font-semibold">{label}</p>
+        <div className="place-detail-value text-sm font-semibold leading-snug mt-0.5">
           {children}
         </div>
       </div>
@@ -203,7 +203,7 @@ export default function PlaceBottomSheet({
             <InfoField icon={<Clock className="w-4 h-4" />} label="ساعات العمل">
               <p dir={hoursText ? 'ltr' : 'rtl'}>{hoursText || 'غير متوفر'}</p>
               {status.subLabel ? (
-                <p className="text-[12px] text-neutral-800 dark:text-zinc-100 font-bold mt-0.5">{status.subLabel}</p>
+                <p className="place-detail-label text-[12px] font-bold mt-0.5">{status.subLabel}</p>
               ) : null}
             </InfoField>
 
@@ -211,12 +211,12 @@ export default function PlaceBottomSheet({
               <a
                 href={phoneHref}
                 dir="ltr"
-                className="rounded-2xl bg-neutral-50 border border-neutral-200 px-3 py-2.5 flex items-center gap-2.5 text-neutral-900 no-underline hover:bg-lime-50 dark:bg-white/5 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                className="place-detail-field rounded-2xl px-3 py-2.5 flex items-center gap-2.5 no-underline hover:brightness-110"
               >
-                <Phone className="w-4 h-4 text-neutral-800 dark:text-brand-400 shrink-0" />
+                <Phone className="place-detail-icon w-4 h-4 shrink-0" />
                 <div className="text-right flex-1">
-                  <p className="text-[11px] text-neutral-600 dark:text-zinc-300 font-semibold" dir="rtl">رقم التواصل</p>
-                  <p className="text-sm font-bold tracking-wide">{place.phone}</p>
+                  <p className="place-detail-label text-[11px] font-semibold" dir="rtl">رقم التواصل</p>
+                  <p className="place-detail-value text-sm font-bold tracking-wide">{place.phone}</p>
                 </div>
               </a>
             ) : (
@@ -230,28 +230,28 @@ export default function PlaceBottomSheet({
                 href={place.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-2xl bg-neutral-50 border border-neutral-200 px-3 py-2.5 flex items-center gap-2.5 text-neutral-900 no-underline hover:bg-lime-50 dark:bg-white/5 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                className="place-detail-field rounded-2xl px-3 py-2.5 flex items-center gap-2.5 no-underline hover:brightness-110"
               >
-                <Globe className="w-4 h-4 text-neutral-800 dark:text-brand-400 shrink-0" />
+                <Globe className="place-detail-icon w-4 h-4 shrink-0" />
                 <div className="text-right flex-1 min-w-0">
-                  <p className="text-[11px] text-neutral-600 dark:text-zinc-300 font-semibold" dir="rtl">الموقع الرسمي</p>
-                  <p className="text-sm font-bold tracking-wide truncate" dir="ltr">{place.website}</p>
+                  <p className="place-detail-label text-[11px] font-semibold" dir="rtl">الموقع الرسمي</p>
+                  <p className="place-detail-value text-sm font-bold tracking-wide truncate" dir="ltr">{place.website}</p>
                 </div>
               </a>
             ) : null}
 
-            <div className="rounded-2xl bg-neutral-50 border border-neutral-200 px-3 py-2.5 flex items-center gap-2.5 dark:bg-white/5 dark:border-white/10">
-              <MapPin className="w-4 h-4 text-neutral-800 dark:text-white shrink-0" />
+            <div className="place-detail-field rounded-2xl px-3 py-2.5 flex items-center gap-2.5">
+              <MapPin className="place-detail-icon w-4 h-4 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] text-neutral-600 dark:text-zinc-300 font-semibold">الإحداثيات</p>
-                <p className="text-sm text-neutral-900 dark:text-white font-semibold font-mono" dir="ltr">
+                <p className="place-detail-label text-[11px] font-semibold">الإحداثيات</p>
+                <p className="place-detail-value text-sm font-semibold font-mono" dir="ltr">
                   {lat.toFixed(6)}, {lng.toFixed(6)}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => { void copyCoords(); }}
-                className="shrink-0 h-8 px-2.5 rounded-lg bg-white border border-neutral-200 text-[11px] font-semibold text-neutral-900 cursor-pointer inline-flex items-center gap-1 hover:bg-neutral-100 dark:bg-neutral-900 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                className="place-detail-copy shrink-0 h-8 px-2.5 rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center gap-1"
               >
                 <Copy className="w-3.5 h-3.5" />
                 {copied ? 'تم النسخ' : 'نسخ'}

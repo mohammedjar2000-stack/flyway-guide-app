@@ -205,6 +205,41 @@ export const TURKEY_HOTELS_DATA = [
   h('jiva-beach-resort', 'resort', 'جيفا بيتش ريزورت', 'Jiva Beach Resort Fethiye', FET, FET_AR, 'Çalış Beach, Fethiye', 36.65840, 29.11620, '+90 252 622 0000', 4.5),
   h('letoonia-hotel', 'resort', 'ليتونيا هوتيل', 'Club & Hotel Letoonia', FET, FET_AR, 'Letoonia Peninsula, Fethiye', 36.64320, 29.10860, '+90 252 614 4966', 4.5),
   h('yonca-lodge', 'hotel', 'يونجا لودج', 'Yonca Lodge Fethiye', FET, FET_AR, 'Kayaköy, Fethiye', 36.57480, 29.09120, '', 4.6),
+
+  // Istanbul extras
+  h('hilton-bomonti', 'hotel', 'هيلتون بومونتي', 'Hilton Istanbul Bomonti', IST, IST_AR, 'Silahşör Caddesi No:42, Bomonti, Şişli', 41.05860, 28.97970, '+90 212 375 3000', 4.6),
+  h('renaissance-polat', 'hotel', 'رينيسانس بولات', 'Renaissance Polat Istanbul Hotel', IST, IST_AR, 'Sahil Yolu Cad., Yeşilyurt, Bakırköy', 40.97190, 28.87780, '+90 212 414 1800', 4.4),
+  h('sheraton-atakoy', 'hotel', 'شيراتون أتاقوي', 'Sheraton Istanbul Atakoy', IST, IST_AR, 'Ataköy 2-5-6. Kısım, Bakırköy', 40.97720, 28.85640, '+90 212 560 1010', 4.4),
+  h('radisson-blu-ortakoy', 'hotel', 'راديسون بلو أرطغرول', 'Radisson Blu Bosphorus Hotel Istanbul', IST, IST_AR, 'Çırağan Caddesi No:46, Ortaköy', 41.05540, 29.02670, '+90 212 310 1500', 4.5),
+  h('novotel-bosphorus', 'hotel', 'نوفوتيل البوسفور', 'Novotel Istanbul Bosphorus', IST, IST_AR, 'Kabataş, Beyoğlu', 41.03480, 28.99240, '+90 212 372 0707', 4.4),
+  h('the-marmara-pera', 'hotel', 'مرمرة بيرا', 'The Marmara Pera', IST, IST_AR, 'Meşrutiyet Caddesi, Beyoğlu', 41.03180, 28.97420, '+90 212 251 4696', 4.4),
+  h('anemon-galata', 'hotel', 'أنيمون غلطة', 'Anemon Galata Hotel', IST, IST_AR, 'Bereketzade, Galata, Beyoğlu', 41.02540, 28.97460, '+90 212 293 2343', 4.5),
+
+  // Antalya / Belek
+  h('rixos-premium-belek', 'resort', 'ريكوسوس بريميوم بيليك', 'Rixos Premium Belek', ANT, ANT_AR, 'Belek, Serik', 36.86220, 31.10060, '+90 242 710 4000', 4.7),
+  h('maxx-royal-belek', 'resort', 'ماكس رويال بيليك', 'Maxx Royal Belek Golf Resort', ANT, ANT_AR, 'Belek, Serik', 36.85750, 31.11690, '+90 242 710 2700', 4.8),
+  h('gloria-golf-belek', 'resort', 'غلوريا غولف بيليك', 'Gloria Golf Resort Belek', ANT, ANT_AR, 'Acısu, Belek', 36.86080, 31.07060, '+90 242 710 0000', 4.6),
+  h('cornelia-diamond', 'resort', 'كورنيليا دايموند', 'Cornelia Diamond Golf Resort & Spa', ANT, ANT_AR, 'Belek, Serik', 36.85190, 31.09830, '+90 242 710 1600', 4.6),
+  h('regnum-carya', 'resort', 'ريغنوم كاريا', 'Regnum Carya Golf & Spa Resort', ANT, ANT_AR, 'Belek, Serik', 36.86390, 31.07810, '+90 242 710 2000', 4.7),
+  h('akra-antalya', 'hotel', 'أكرا أنطاليا', 'Akra Hotel Antalya', ANT, ANT_AR, 'Şirinyalı, Muratpaşa', 36.86830, 30.73440, '+90 242 249 0700', 4.6),
+  h('rixos-downtown', 'hotel', 'ريكوسوس داون تاون', 'Rixos Downtown Antalya', ANT, ANT_AR, 'Şirinyalı, Muratpaşa', 36.85670, 30.63720, '+90 242 249 4949', 4.5),
+  h('land-of-legends', 'resort', 'لاند أوف ليجندز', 'The Land of Legends Kingdom Hotel', ANT, ANT_AR, 'Aksu, Antalya', 36.90560, 30.66470, '+90 242 431 2020', 4.6),
+  h('susesi-luxury', 'resort', 'سوسيسي لاكشري', 'Susesi Luxury Resort Belek', ANT, ANT_AR, 'Belek, Serik', 36.85840, 31.08220, '+90 242 710 1210', 4.6),
+  h('calista-luxury', 'resort', 'كاليستا لاكشري', 'Calista Luxury Resort Belek', ANT, ANT_AR, 'Belek, Serik', 36.85620, 31.09140, '+90 242 710 0900', 4.6),
+  h('limak-lara', 'resort', 'ليماك لارا', 'Limak Lara De Luxe Hotel', ANT, ANT_AR, 'Lara, Muratpaşa', 36.85680, 30.88040, '+90 242 352 2200', 4.5),
+  h('barut-lara', 'resort', 'باروت لارا', 'Barut Lara Resort Spa & Suites', ANT, ANT_AR, 'Lara, Muratpaşa', 36.85120, 30.87780, '+90 242 352 3535', 4.5),
+  h('crowne-plaza-antalya', 'hotel', 'كراون بلازا أنطاليا', 'Crowne Plaza Antalya', ANT, ANT_AR, 'Konyaaltı', 36.88340, 30.67080, '+90 242 248 7000', 4.4),
+  h('rixos-sungate', 'resort', 'ريكوسوس صن غيت', 'Rixos Sungate', ANT, ANT_AR, 'Kemer, Antalya', 36.60180, 30.55840, '+90 242 824 2343', 4.5),
+
+  // Cappadocia / Ankara
+  h('museum-hotel-uchisar', 'hotel', 'ميوزيوم هوتيل أوتشيسار', 'Museum Hotel Uchisar', NEV, NEV_AR, 'Tekelli Mah., Uçhisar', 38.62940, 34.81060, '+90 384 219 2220', 4.8),
+  h('argos-cappadocia', 'hotel', 'أرغوس كابادوكيا', 'Argos in Cappadocia', NEV, NEV_AR, 'Uçhisar', 38.62970, 34.80530, '+90 384 219 3130', 4.8),
+  h('sultan-cave-suites', 'hotel', 'سلطان كيف سويتس', 'Sultan Cave Suites', NEV, NEV_AR, 'Göreme', 38.64360, 34.83060, '+90 384 271 3023', 4.6),
+  h('kayakapi-urgup', 'hotel', 'كاياكابي أورغوب', 'Kayakapi Premium Caves', NEV, NEV_AR, 'Ürgüp', 38.63120, 34.91180, '+90 384 341 8877', 4.7),
+  h('jw-marriott-ankara', 'hotel', 'جي دبليو ماريوت أنقرة', 'JW Marriott Hotel Ankara', ANK, ANK_AR, 'Kızılırmak Mah., Çankaya', 39.91060, 32.81280, '+90 312 414 0000', 4.6),
+  h('sheraton-ankara', 'hotel', 'شيراتون أنقرة', 'Sheraton Ankara Hotel & Convention Center', ANK, ANK_AR, 'Noktalı Sokak, Kavaklıdere', 39.90890, 32.77860, '+90 312 457 6000', 4.5),
+  h('hiltonsa-ankara', 'hotel', 'هيلتون إس إيه أنقرة', 'HiltonSA Ankara', ANK, ANK_AR, 'Gazi Mustafa Kemal Bulvarı, Çankaya', 39.91030, 32.77940, '+90 312 457 6000', 4.4),
+  h('swissotel-ankara', 'hotel', 'سويس أوتيل أنقرة', 'Swissotel Ankara', ANK, ANK_AR, 'Yıldızevler, Çankaya', 39.86840, 32.86020, '+90 312 409 3000', 4.5),
 ];
 
-export const TURKEY_HOTELS_DATASET_VERSION = 2;
+export const TURKEY_HOTELS_DATASET_VERSION = 3;

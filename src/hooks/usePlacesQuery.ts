@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DirectoryListing } from '@/types';
 import { haversineKm, type MapBounds } from '@/lib/geo';
-import { DEFAULT_CATEGORY_KEYS, FETCH_RADIUS_METERS } from '@/lib/mapConfig';
+import { DEFAULT_CATEGORY_KEYS } from '@/lib/mapConfig';
 import { catalogBoundsForCity, resolveCatalogCity } from '@/lib/cityCoordinates';
 import { canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePrecision';
 import { isFuelCoordinateClean } from '@/lib/fuelGuard';
@@ -13,19 +13,11 @@ import { fetchTurkeyHotels, peekTurkeyHotelCache } from '@/services/hotelApi';
 import { civicListRank } from '@/lib/civicRank';
 import { getVerifiedPlaces } from '@/lib/verifiedPlaces';
 import { turkeyAirportListings } from '@/lib/turkeyAirports';
-import { fetchPlacesForMap, fetchPlacesFromOverpass } from '@/services/overpassApi';
 import { listingDedupeKey, tallyScopedCategoryCounts } from '@/hooks/useCategoryCounts';
-import {
-  fetchNearbyPlaces,
-  fetchPlaceCatalog,
-  gisPlacesToListings,
-  ingestMappedPlaces,
-  PLACES_UPDATED_EVENT,
-  syncOsmCategory,
-} from '@/services/gisApi';
-import { bootPlaceVault, getVaultSnapshot, ingestListings, mergeIntoVault, replaceWithDatabaseListings, subscribeVault } from '@/lib/placeVault';
+import { bootPlaceVault, getVaultSnapshot, ingestListings, mergeIntoVault, subscribeVault } from '@/lib/placeVault';
 import { ISTANBUL_DATASET_VERSION } from '@/lib/datasetVersion';
-import { fetchDatasetVersion, fetchPoiCatalog, writeCachedDatasetVersion } from '@/services/poiService';
+
+const PLACES_UPDATED_EVENT = 'flyway:places-updated';
 
 interface UsePlacesQueryArgs {
   bounds: MapBounds | null;
@@ -40,41 +32,25 @@ interface UsePlacesQueryArgs {
   locationBbox?: { south: number; west: number; north: number; east: number } | null;
 }
 
-const CITY_CATALOG_LIMIT = 5000;
-const CITY_NEARBY_LIMIT = 2500;
-const CITY_SYNC_LIMIT = 500;
 const AIRPORT_SEEDS = turkeyAirportListings();
+const CITY_SYNC_LIMIT = 0;
+const FETCH_RADIUS_METERS = 0;
 
 function keepPreviousData<T>(previous: T | undefined) {
   return previous;
 }
 
 async function fetchCityCategory(
-  category: string,
-  here: { lat: number; lng: number } | null,
-  cityEn?: string | null,
-  live = true,
+  _category?: string,
+  _here?: { lat: number; lng: number } | null,
+  _cityEn?: string | null,
+  _live = true,
 ) {
-  if (!live) return [] as DirectoryListing[];
-  const catalogCity = cityEn && cityEn !== 'All Turkey' ? cityEn : undefined;
-  const [osm, gis, catalog] = await Promise.all([
-    live && here
-      ? fetchPlacesFromOverpass(here.lat, here.lng, category, FETCH_RADIUS_METERS).catch(() => [] as DirectoryListing[])
-      : Promise.resolve([] as DirectoryListing[]),
-    live && here
-      ? fetchNearbyPlaces({
-        lat: here.lat,
-        lng: here.lng,
-        radius: FETCH_RADIUS_METERS,
-        category,
-        city: catalogCity,
-        limit: CITY_NEARBY_LIMIT,
-      })
-      : Promise.resolve([]),
-    fetchPlaceCatalog({ category, city: catalogCity, limit: CITY_CATALOG_LIMIT }),
-  ]);
-  if (osm.length) void ingestMappedPlaces(osm);
-  return [...gisPlacesToListings(gis), ...gisPlacesToListings(catalog), ...osm];
+  return [] as DirectoryListing[];
+}
+
+function syncOsmCategory(_opts?: unknown) {
+  return Promise.resolve(null);
 }
 
 function matchesSelectedCategory(item: DirectoryListing, categories: string[]) {
@@ -123,7 +99,7 @@ export function usePlacesQuery({
   const cityKey = (resolvedCity?.en || locationCity || locationCountry || '').trim();
   const allTurkey = isAllTurkeyCity(resolvedCity) || isAllTurkeyCity(locationCity);
   const turkeyStay = allTurkey || isTurkeyCountry(resolvedCity?.country || locationCountry);
-  const liveOsm = !allTurkey && !isTurkeyCountry(resolvedCity?.country || locationCountry);
+  const liveOsm = false;
   const nationwideHotels = turkeyStay
     && categories.length > 0
     && categories.every((key) => key === 'hotels');
@@ -167,23 +143,13 @@ export function usePlacesQuery({
 
   const databaseQuery = useQuery({
     queryKey: ['places-db', ISTANBUL_DATASET_VERSION, cityKey, allTurkey ? 'all' : 'city'],
-    enabled: Boolean(cityKey),
+    enabled: false,
     staleTime: 5 * 60_000,
     gcTime: Infinity,
     retry: 1,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
-    queryFn: async () => {
-      const version = await fetchDatasetVersion();
-      const cityEn = cityEnRef.current && cityEnRef.current !== 'All Turkey' ? cityEnRef.current : undefined;
-      const rows = await fetchPoiCatalog({
-        city: allTurkey ? undefined : (cityEn || cityRef.current),
-        country: countryRef.current || 'تركيا',
-      });
-      writeCachedDatasetVersion(version, rows.length);
-      if (rows.length) replaceWithDatabaseListings(rows);
-      return { version, rows };
-    },
+    queryFn: async () => ({ version: ISTANBUL_DATASET_VERSION, rows: [] as DirectoryListing[] }),
   });
 
   const pharmacyQuery = useQuery({
@@ -192,7 +158,7 @@ export function usePlacesQuery({
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     queryFn: async () => {
@@ -219,7 +185,7 @@ export function usePlacesQuery({
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     queryFn: async () => {
@@ -248,7 +214,7 @@ export function usePlacesQuery({
     staleTime: turkeyStay ? 30 * 60_000 : 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     initialData: turkeyStay ? () => {
@@ -282,7 +248,7 @@ export function usePlacesQuery({
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     queryFn: async () => {
@@ -309,7 +275,7 @@ export function usePlacesQuery({
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     queryFn: async () => {
@@ -336,7 +302,7 @@ export function usePlacesQuery({
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     queryFn: async () => {
@@ -363,7 +329,7 @@ export function usePlacesQuery({
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     queryFn: async () => {
@@ -390,7 +356,7 @@ export function usePlacesQuery({
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     queryFn: async () => {
@@ -429,7 +395,7 @@ export function usePlacesQuery({
     staleTime: 30_000,
     gcTime: Infinity,
     retry: 1,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     queryFn: async () => {
@@ -468,45 +434,9 @@ export function usePlacesQuery({
     retry: 0,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchOnMount: true,
+    refetchOnMount: false,
     placeholderData: (previous) => previous,
-    queryFn: async () => {
-      if (!liveOsmRef.current) {
-        return { places: [] as DirectoryListing[], fallback: true };
-      }
-      const here = originRef.current;
-      const local = verifiedRef.current;
-      let cats = DEFAULT_CATEGORY_KEYS.filter((key) => key !== 'fuel');
-      if (local.filter((item) => item.category_key === 'restaurants').length >= 150) {
-        cats = cats.filter((key) => key !== 'restaurants');
-      }
-      const liveCats = cats.includes('pharmacies') ? cats : ['pharmacies', ...cats];
-      try {
-        const catalogCity = cityEnRef.current && cityEnRef.current !== 'All Turkey' ? cityEnRef.current : undefined;
-        const [overpass, gisMixed, catalogAll] = await Promise.all([
-          liveOsmRef.current
-            ? fetchPlacesForMap({
-              bounds: cityBounds,
-              origin: here,
-              categories: liveCats,
-              radiusMeters: FETCH_RADIUS_METERS,
-            }).catch(() => [] as DirectoryListing[])
-            : Promise.resolve([] as DirectoryListing[]),
-          liveOsmRef.current && here
-            ? fetchNearbyPlaces({ lat: here.lat, lng: here.lng, radius: FETCH_RADIUS_METERS, city: catalogCity, limit: CITY_NEARBY_LIMIT })
-            : Promise.resolve([]),
-          fetchPlaceCatalog({ city: catalogCity, limit: CITY_CATALOG_LIMIT }),
-        ]);
-        const gisListings = gisPlacesToListings([...catalogAll, ...gisMixed]);
-        const places = [...gisListings, ...overpass];
-        if (overpass.length > 0) {
-          void ingestMappedPlaces(overpass).catch(() => null);
-        }
-        return { places, fallback: overpass.length === 0 && gisListings.length === 0 };
-      } catch {
-        return { places: [] as DirectoryListing[], fallback: true };
-      }
-    },
+    queryFn: async () => ({ places: [] as DirectoryListing[], fallback: true }),
   });
 
   const catalogHold = useRef<DirectoryListing[]>([]);

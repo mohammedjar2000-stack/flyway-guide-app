@@ -10,6 +10,7 @@ import { placeGallery } from '@/lib/placeImagery';
 import { pinListing } from '@/lib/placePrecision';
 import { isMallPlace, shoppingLabel } from '@/lib/shoppingKind';
 import { financialKind, financialLabel } from '@/lib/financialKind';
+import { isLiveApiEnabled } from '@/lib/liveApiGate';
 
 const GIS_BASE = '/api/places';
 export const PLACES_UPDATED_EVENT = 'flyway:places-updated';
@@ -58,6 +59,7 @@ function notifyPlacesUpdated(counts?: Record<string, number>) {
 }
 
 async function getJson<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T | null> {
+  if (!isLiveApiEnabled('gis')) return null;
   const url = new URL(path, window.location.origin);
   for (const [key, value] of Object.entries(params)) {
     if (value == null || value === '') continue;
@@ -73,6 +75,7 @@ async function getJson<T>(path: string, params: Record<string, string | number |
 }
 
 async function postJson<T>(path: string, body: unknown, params: Record<string, string | number | undefined> = {}): Promise<T | null> {
+  if (!isLiveApiEnabled('gis')) return null;
   const url = new URL(path, window.location.origin);
   for (const [key, value] of Object.entries(params)) {
     if (value == null || value === '') continue;

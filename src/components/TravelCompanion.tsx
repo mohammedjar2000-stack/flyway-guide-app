@@ -22,7 +22,7 @@ export default function TravelCompanion({ expanded, onExpand, currentCountry, on
   const [missionQuery, setMissionQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const { rates, live } = useUsdRates();
+  const { rates, live } = useUsdRates(expanded === 'currency');
 
   useEffect(() => {
     if (!currentCountry) return;

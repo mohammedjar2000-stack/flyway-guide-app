@@ -11,7 +11,12 @@ if (!showPhoneFrame) {
   if (window.name === PHONE_FRAME_WINDOW_NAME) {
     document.documentElement.classList.add('phone-preview-inner');
   }
-  void bootPlaceVault();
+  const bootVault = () => { void bootPlaceVault(); };
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(bootVault, { timeout: 1800 });
+  } else {
+    window.setTimeout(bootVault, 400);
+  }
 }
 
 const queryClient = new QueryClient({
@@ -22,6 +27,7 @@ const queryClient = new QueryClient({
       retry: 0,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
+      refetchOnMount: false,
     },
   },
 });

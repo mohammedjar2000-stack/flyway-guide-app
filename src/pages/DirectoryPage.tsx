@@ -4,7 +4,6 @@ import {
   Banknote, Landmark, Car, Shield, Smartphone, Moon, Scissors, Fuel,
   ShoppingCart, PlaneTakeoff, Search, Star, MapPin, Phone, Clock, X, Compass, Globe,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import type { DirectoryListing } from '@/types';
 import { CATEGORIES } from '@/types';
 import { pinQuery, sanitizePin, canonicalFuelBakeryKey, listingMatchesCategory } from '@/lib/placePrecision';
@@ -18,21 +17,11 @@ import PlaceSafeImage from '@/components/map/PlaceSafeImage';
 import { usePlacePreview } from '@/hooks/usePlacePreview';
 import { formatPlaceCount, listingDedupeKey, useCategoryCounts } from '@/hooks/useCategoryCounts';
 import { civicListRank } from '@/lib/civicRank';
-import {
-  fetchPlaceCatalog,
-  gisPlacesToListings,
-  ingestMappedPlaces,
-  PLACES_UPDATED_EVENT,
-  syncOsmCategory,
-} from '@/services/gisApi';
-import { fetchPlacesFromOverpass } from '@/services/overpassApi';
 import { lookupCity } from '@/lib/cityCoordinates';
-import { FETCH_RADIUS_METERS } from '@/lib/mapConfig';
 import { listingMatchesProvince, isAllTurkeyCity, isTurkeyCountry } from '@/lib/turkeyScope';
 import { appleMapsDirUrl, googleMapsSearchUrl, wazeNavUrl } from '@/lib/navLinks';
 import { fetchTurkeyHotels } from '@/services/hotelApi';
-import { fetchPoiCatalog } from '@/services/poiService';
-import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, replaceWithDatabaseListings, subscribeVault } from '@/lib/placeVault';
+import { bootPlaceVault, getVaultSnapshot, mergeIntoVault, subscribeVault } from '@/lib/placeVault';
 
 const iconMap: Record<string, typeof Hotel> = {
   Hotel, UtensilsCrossed, Stethoscope, Pill, ShoppingBag, Camera,
@@ -68,73 +57,10 @@ export default function DirectoryPage({ locationFilter }: DirectoryPageProps) {
       if (!cancelled) setListings(getVaultSnapshot());
     });
 
-    const cityHit = lookupCity(locationFilter?.city) || lookupCity(locationFilter?.country);
-    const origin = cityHit ? { lat: cityHit.lat, lng: cityHit.lng } : { lat: 41.0082, lng: 28.9784 };
-
-    const turkey = !cityHit
-      || isTurkeyCountry(cityHit.country)
-      || isTurkeyCountry(cityHit.countryEn)
-      || isAllTurkeyCity(cityHit);
     (async () => {
-      const dbRows = await fetchPoiCatalog({
-        city: isAllTurkeyCity(cityHit) ? undefined : cityHit?.en,
-        country: cityHit?.country || 'تركيا',
-      }).catch(() => [] as DirectoryListing[]);
-      if (cancelled) return;
-      if (dbRows.length) {
-        replaceWithDatabaseListings(dbRows);
-      } else {
-        mergeIntoVault(getAllVerifiedPlaces(), { fromCache: true });
-      }
-      if (turkey) {
-        const hotels = await fetchTurkeyHotels().catch(() => [] as DirectoryListing[]);
-        if (!cancelled && hotels.length) mergeIntoVault(hotels);
-        return;
-      }
-      const cityName = cityHit?.en || '';
-      void ingestMappedPlaces(getVaultSnapshot()).catch(() => null);
-      const denseCats = ['pharmacies', 'markets', 'hotels', 'telecom', 'exchange', 'transport', 'hospitals', 'police', 'bakeries', 'restaurants', 'mosques', 'nightlife', 'salons'] as const;
-      for (const category of denseCats) {
-        void syncOsmCategory({
-          lat: origin.lat,
-          lng: origin.lng,
-          category,
-          city: cityName,
-          country: cityHit?.countryEn || 'Turkey',
-          limit: category === 'transport' || category === 'bakeries' ? 400 : 250,
-          radius: FETCH_RADIUS_METERS,
-        }).then(async (osmCounts) => {
-          if (cancelled) return;
-          if (osmCounts) {
-            window.dispatchEvent(new CustomEvent(PLACES_UPDATED_EVENT, { detail: { counts: osmCounts } }));
-          }
-          const extra = await fetchPlaceCatalog({ category, limit: 5000 });
-          if (cancelled) return;
-          mergeIntoVault(gisPlacesToListings(extra));
-        }).catch(() => null);
-      }
-      const directoryRows = await Promise.race([
-        Promise.resolve(
-          supabase.from('directory_listings').select('*').order('sort_order')
-            .then(({ data }) => (data ?? []) as DirectoryListing[]),
-        ).catch(() => [] as DirectoryListing[]),
-        new Promise<DirectoryListing[]>((resolve) => {
-          window.setTimeout(() => resolve([]), 2500);
-        }),
-      ]);
-      const [gisPlaces, ...liveBuckets] = await Promise.all([
-        fetchPlaceCatalog({ limit: 5000 }),
-        ...denseCats.map((category) => fetchPlacesFromOverpass(origin.lat, origin.lng, category, FETCH_RADIUS_METERS).catch(() => [] as DirectoryListing[])),
-      ]);
-      if (cancelled) return;
-      mergeIntoVault(directoryRows);
-      mergeIntoVault(gisPlacesToListings(gisPlaces));
-      for (const bucket of liveBuckets) {
-        if (bucket.length) {
-          mergeIntoVault(bucket);
-          void ingestMappedPlaces(bucket).catch(() => null);
-        }
-      }
+      mergeIntoVault(getAllVerifiedPlaces(), { fromCache: true });
+      const hotels = await fetchTurkeyHotels().catch(() => [] as DirectoryListing[]);
+      if (!cancelled && hotels.length) mergeIntoVault(hotels);
     })();
 
     return () => {

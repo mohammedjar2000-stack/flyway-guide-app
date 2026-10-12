@@ -92,47 +92,14 @@ async function pingMapsJavascript(key: string, started: number): Promise<GoogleP
   };
 }
 
-/** Live health check for the configured Google Cloud Places / Maps key. */
+/** Live Google Places probes are disabled after the performance rollback. */
 export async function pingGooglePlaces(): Promise<GooglePlacesPing> {
-  const key = getGooglePlacesApiKey();
-  const started = performance.now();
-  if (!isGooglePlacesConfigured()) {
-    return {
-      ok: false,
-      invalid: false,
-      records: 0,
-      latencyMs: 0,
-      status: 'missing',
-      body: { configured: false },
-    };
-  }
-
-  let live: GooglePlacesPing | null = null;
-  try {
-    live = await pingPlacesNearby(key, started);
-  } catch {
-    live = null;
-  }
-  if (!live || (!live.ok && !live.invalid)) {
-    try {
-      live = await pingMapsJavascript(key, started);
-    } catch {
-      live = null;
-    }
-  }
-
-  if (live?.invalid) return live;
-
   return {
-    ok: true,
+    ok: false,
     invalid: false,
-    records: live?.records || 0,
-    latencyMs: live?.latencyMs ?? Math.round(performance.now() - started),
-    status: live?.status || 'configured',
-    body: {
-      configured: true,
-      key: maskGooglePlacesKey(key),
-      live: live?.body || { note: 'Key present; live REST probe skipped' },
-    },
+    records: 0,
+    latencyMs: 0,
+    status: 'disabled',
+    body: { paused: true },
   };
 }

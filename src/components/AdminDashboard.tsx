@@ -9,15 +9,18 @@ import {
   EyeOff,
   Loader2,
   Lock,
+  Power,
   RefreshCw,
   Shield,
   Unplug,
+  Zap,
 } from 'lucide-react';
 import { isAdminUnlocked, lockAdmin, unlockAdmin } from '@/lib/adminGate';
 import {
   probeAllApis,
   probeGisBackend,
   probeGooglePlaces,
+  probeLocalFastPath,
   probeLocalStorage,
   probeNominatim,
   probeOverpass,
@@ -29,6 +32,8 @@ import {
   type ApiHealthCard,
   type ApiHealthStatus,
 } from '@/services/apiHealth';
+import { isCardLiveEnabled, isLocalOnlyCard, setCardLiveEnabled } from '@/lib/liveApiGate';
+import { useLiveApiGate } from '@/hooks/useLiveApiGate';
 
 const PROBE_BY_ID: Record<string, () => Promise<ApiHealthCard>> = {
   'turkey-hotels': () => probeTurkeyHotels(),
@@ -133,12 +138,18 @@ function HealthCard({
   card,
   busy,
   expanded,
+  liveOn,
+  localOnly,
+  onToggleLive,
   onToggle,
   onRefresh,
 }: {
   card: ApiHealthCard;
   busy: boolean;
   expanded: boolean;
+  liveOn: boolean;
+  localOnly: boolean;
+  onToggleLive: () => void;
   onToggle: () => void;
   onRefresh: () => void;
 }) {
@@ -148,13 +159,19 @@ function HealthCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`inline-block w-2.5 h-2.5 rounded-full ${tone.dot}`} />
+            <span className={`inline-block w-2.5 h-2.5 rounded-full ${liveOn ? tone.dot : 'bg-neutral-400'}`} />
             <h2 className="font-bold text-neutral-900 dark:text-white truncate">{card.name}</h2>
           </div>
           <p className="text-xs text-neutral-500 dark:text-zinc-400">{card.nameEn}</p>
         </div>
-        <span className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${tone.chip}`}>
-          {tone.label}
+        <span className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
+          localOnly
+            ? tone.chip
+            : liveOn
+              ? tone.chip
+              : 'bg-neutral-100 text-neutral-600 border-neutral-300 dark:bg-white/10 dark:text-zinc-300 dark:border-white/15'
+        }`}>
+          {localOnly ? tone.label : liveOn ? tone.label : 'موقوف'}
         </span>
       </div>
       <p className="text-sm text-neutral-700 dark:text-zinc-200 leading-relaxed">{card.description}</p>
@@ -176,10 +193,25 @@ function HealthCard({
         آخر مزامنة: {formatTime(card.lastSync)}
       </p>
       <div className="flex items-center gap-2 mt-auto">
+        {!localOnly && (
+          <button
+            type="button"
+            onClick={onToggleLive}
+            className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3 h-11 text-xs font-semibold border ${
+              liveOn
+                ? 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+            }`}
+            aria-pressed={liveOn}
+          >
+            <Power className="w-4 h-4" />
+            {liveOn ? 'إيقاف' : 'تفعيل'}
+          </button>
+        )}
         <button
           type="button"
           onClick={onRefresh}
-          disabled={busy}
+          disabled={busy || (!localOnly && !liveOn)}
           className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-neutral-950 text-sm font-semibold py-2.5"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
@@ -210,6 +242,7 @@ export default function AdminDashboard() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [error, setError] = useState('');
+  const { master, toggleMaster } = useLiveApiGate();
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
@@ -226,8 +259,16 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!unlocked) return;
-    void refreshAll();
-  }, [unlocked, refreshAll]);
+    if (cards.length > 0) return;
+    void (async () => {
+      setLoading(true);
+      try {
+        setCards(await probeLocalFastPath());
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [unlocked, cards.length]);
 
   const refreshOne = async (id: string) => {
     const probe = PROBE_BY_ID[id];
@@ -268,10 +309,23 @@ export default function AdminDashboard() {
           </div>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white mb-2">لوحة مراقبة واجهات البيانات</h1>
           <p className="text-sm text-neutral-600 dark:text-zinc-300 max-w-2xl">
-            حالة الاتصال والسجلات المتزامنة لكل مصدر: فنادق تركيا، GIS، Google Places، RapidAPI، Supabase، Overpass، والترميز الجغرافي، مع خزينة المتصفح.
+            الوضع الافتراضي محلي وسريع: الفنادق، الخزينة، والإحداثيات تُحمَّل من الجهاز. الواجهات الحية لا تُستدعى إلا بعد تفعيلها يدوياً.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={toggleMaster}
+            className={`inline-flex items-center gap-2 rounded-xl font-semibold px-4 py-2.5 border ${
+              master
+                ? 'border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300'
+                : 'border-emerald-500/30 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300'
+            }`}
+            aria-pressed={!master}
+          >
+            {master ? <Unplug className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+            {master ? 'إيقاف كل الواجهات الحية' : 'الوضع المحلي — الواجهات متوقفة'}
+          </button>
           <button
             type="button"
             onClick={() => void refreshAll()}
@@ -337,6 +391,9 @@ export default function AdminDashboard() {
               card={card}
               busy={loading || busyId === card.id}
               expanded={Boolean(expanded[card.id])}
+              localOnly={isLocalOnlyCard(card.id)}
+              liveOn={isCardLiveEnabled(card.id)}
+              onToggleLive={() => setCardLiveEnabled(card.id, !isCardLiveEnabled(card.id))}
               onToggle={() => setExpanded((prev) => ({ ...prev, [card.id]: !prev[card.id] }))}
               onRefresh={() => void refreshOne(card.id)}
             />
@@ -386,7 +443,7 @@ export default function AdminDashboard() {
 
       <p className="mt-6 text-xs text-neutral-500 dark:text-zinc-400 flex items-center gap-2">
         <Unplug className="w-3.5 h-3.5" />
-        المفاتيح السرية تبقى على الخادم. هذه اللوحة تعرض الحالة والأعداد فقط.
+        الواجهات الحية متوقفة افتراضياً. الكتالوجات المحلية تعمل فوراً دون استطلاع خلفي.
       </p>
     </div>
   );

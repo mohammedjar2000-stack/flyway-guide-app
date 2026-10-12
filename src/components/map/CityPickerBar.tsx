@@ -79,18 +79,18 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
   const countries = useMemo(() => listCountriesFromCatalog(), []);
   const currentCity = lookupCity(location?.city) || lookupCity(location?.label);
   const typed = query.trim();
-  const canSuggest = typed.length >= 2;
+  const canSuggest = typed.length >= 2 || Boolean(country);
 
   const localOptions = useMemo(() => {
     const cities = getMajorCitiesForCountry(country);
-    const options = cities.map((city) => optionFromCity(city, queryMatchScore(typed, city.name, city.en)));
+    const options = cities.map((city) => optionFromCity(city, typed ? queryMatchScore(typed, city.name, city.en) : 1));
     const cityForDistricts = currentCity && currentCity.country === country ? currentCity : cities[0];
     if (cityForDistricts) {
       for (const district of getDistrictsForCity(cityForDistricts.en, cityForDistricts.countryCode)) {
         options.push(optionFromDistrict(
           district,
           cityForDistricts,
-          queryMatchScore(typed, district.name, district.en, cityForDistricts.name),
+          typed ? queryMatchScore(typed, district.name, district.en, cityForDistricts.name) : 1,
         ));
       }
     }
@@ -146,7 +146,7 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
     const timer = window.setTimeout(() => {
       void Promise.all([
         searchCities(typed, country).catch(() => []),
-        searchCountries(typed).catch(() => []),
+        typed.length >= 2 ? searchCountries(typed).catch(() => []) : Promise.resolve([]),
       ]).then(([hits, countryHits]) => {
         if (cancelled) return;
         setRemote(hits.map((hit) => ({
@@ -202,24 +202,28 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
     if (!canSuggest) return [] as CityOption[];
     const seen = new Set<string>();
     const next: CityOption[] = [];
-    const extras = listMajorCities(undefined, typed).map((hit) => ({
-      id: `city:${hit.city.countryCode}:${hit.city.en}`,
-      kind: 'city' as const,
-      name: hit.city.name,
-      en: hit.city.en,
-      country: hit.countryName,
-      cityName: hit.city.name,
-      lat: hit.city.lat,
-      lng: hit.city.lng,
-      score: queryMatchScore(typed, hit.city.name, hit.city.en),
-    }));
+    const extras = typed
+      ? listMajorCities(undefined, typed).map((hit) => ({
+          id: `city:${hit.city.countryCode}:${hit.city.en}`,
+          kind: 'city' as const,
+          name: hit.city.name,
+          en: hit.city.en,
+          country: hit.countryName,
+          cityName: hit.city.name,
+          lat: hit.city.lat,
+          lng: hit.city.lng,
+          score: queryMatchScore(typed, hit.city.name, hit.city.en),
+        }))
+      : [];
     for (const option of [...localOptions, ...extras, ...remote]) {
-      const score = option.score ?? queryMatchScore(typed, option.name, option.en, option.cityName, option.country);
-      if (score <= 0 || seen.has(option.id)) continue;
+      const score = typed
+        ? (option.score ?? queryMatchScore(typed, option.name, option.en, option.cityName, option.country))
+        : (option.score ?? 1);
+      if ((typed && score <= 0) || seen.has(option.id)) continue;
       seen.add(option.id);
       next.push({ ...option, score });
     }
-    return next.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 24);
+    return next.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, typed ? 24 : 80);
   }, [canSuggest, localOptions, remote, typed]);
 
   const cities = filtered.filter((o) => o.kind === 'city');
@@ -267,7 +271,8 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
     setCountryMenu(false);
     setCountryFilter('');
     setQuery('');
-    setOpen(false);
+    setOpen(true);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const label = location?.district
@@ -302,11 +307,11 @@ export default function CityPickerBar({ location, onSelect }: CityPickerBarProps
               const next = e.target.value;
               setQuery(next);
               setCountryMenu(false);
-              setOpen(next.trim().length >= 2);
+              setOpen(true);
             }}
             onFocus={() => {
               setCountryMenu(false);
-              if (query.trim().length >= 2) setOpen(true);
+              setOpen(true);
             }}
             placeholder={label}
             autoComplete="off"

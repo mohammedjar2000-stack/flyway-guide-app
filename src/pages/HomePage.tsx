@@ -7,30 +7,24 @@ import {
   Sparkles, Globe, Zap, Navigation, Search, Crosshair, Building2,
   ChevronDown, PlaneTakeoff,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { Country, Promo, PageKey } from '@/types';
 import { CATEGORIES } from '@/types';
 import { flywayBookingUrl } from '@/lib/flywayBooking';
 import {
-  getDataset,
-  searchCountries,
   searchCities,
   searchDistricts,
   listMajorCities,
   catalogCountries,
+  searchCountriesSync,
   type CountryData,
   type CityData,
   type DistrictData,
 } from '@/lib/locations';
-import {
-  lookupCity,
-  queryMatchScore,
-  resolveMapFocus,
-  isValidCoord,
-  type AppLocation,
-} from '@/lib/cityCoordinates';
+import { lookupCity, resolveMapFocus, isValidCoord, type AppLocation } from '@/lib/cityCoordinates';
 import { geocodePlace, reverseGeocode, type GeoHit } from '@/services/geocode';
-import { formatPlaceCount, useCategoryCounts } from '@/hooks/useCategoryCounts';
+import { formatPlaceCount, tallyScopedCategoryCounts } from '@/hooks/useCategoryCounts';
+import { getVaultSnapshot } from '@/lib/placeVault';
 
 interface HomePageProps {
   onNavigate: (page: PageKey) => void;
@@ -112,6 +106,7 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
   const [neighborhoodSuggestions, setNeighborhoodSuggestions] = useState<{ district: DistrictData; cityName: string; countryName: string }[]>([]);
   const [showNeighborhoodSuggestions, setShowNeighborhoodSuggestions] = useState(false);
   const [countryMenuPos, setCountryMenuPos] = useState({ top: 0, left: 0, width: 280 });
+  const [cityMenuPos, setCityMenuPos] = useState({ top: 0, left: 0, width: 280 });
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState('');
   const [locating, setLocating] = useState(false);
@@ -120,13 +115,17 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
   const cityRef = useRef<HTMLDivElement>(null);
   const neighborhoodRef = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { counts: liveCounts } = useCategoryCounts({
-    city: selectedCity?.name || currentLocation?.city,
-    country: selectedCountry?.name || currentLocation?.country,
-  });
+  const [liveCounts] = useState(() => tallyScopedCategoryCounts(getVaultSnapshot(), {
+    city: currentLocation?.city,
+    country: currentLocation?.country,
+  }).counts);
   const activeCountryName = selectedCountry?.name || countryQuery.trim() || undefined;
 
   useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       const [{ data: c }, { data: p }] = await Promise.all([
         supabase.from('countries').select('*').order('created_at'),
@@ -141,7 +140,8 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const countryMenu = document.getElementById('hero-country-menu');
-      if (countryMenu?.contains(e.target as Node)) return;
+      const cityMenu = document.getElementById('hero-city-menu');
+      if (countryMenu?.contains(e.target as Node) || cityMenu?.contains(e.target as Node)) return;
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setShowSuggestions(false);
         setShowCountryResults(false);
@@ -176,6 +176,23 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
     };
   }, [showCountrySuggestions, countrySuggestions.length]);
 
+  useEffect(() => {
+    if (!showCitySuggestions) return;
+    const place = () => {
+      const el = cityRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setCityMenuPos({ top: r.bottom + 8, left: r.left, width: Math.max(r.width, 220) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [showCitySuggestions, citySuggestions.length]);
+
   const trending = countries.filter((c) => c.trending).slice(0, 4);
 
   const searchLocations = (
@@ -197,35 +214,27 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
     }, 350);
   };
 
-  const [datasetLoading, setDatasetLoading] = useState(true);
-
-  useEffect(() => {
-    getDataset().then(() => setDatasetLoading(false));
-  }, []);
-
-  const filterCountries = async (query: string) => {
-    const catalog = catalogCountries();
-    const q = query.trim();
-    const instant = !q
-      ? catalog
-      : catalog
-        .map((item) => ({ item, score: queryMatchScore(q, item.name, item.en, item.code) }))
-        .filter((row) => row.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .map((row) => row.item);
-    setCountrySuggestions(instant);
-    const results = await searchCountries(query);
-    setCountrySuggestions(results.length ? results : instant);
+  const filterCountries = (query: string) => {
+    setCountrySuggestions(searchCountriesSync(query));
   };
 
   const filterCities = async (query: string, countryName?: string) => {
     if (countryName) {
-      const major = listMajorCities(countryName, query);
-      setCitySuggestions(major);
-      if (major.length > 0 && (!query.trim() || major.length >= 3)) return;
+      setCitySuggestions(listMajorCities(countryName, query));
     }
     const results = await searchCities(query, countryName);
-    setCitySuggestions(results);
+    setCitySuggestions(results.length ? results : listMajorCities(countryName, query));
+  };
+
+  const openCityDropdown = (countryName?: string, query = '') => {
+    const country = countryName || selectedCountry?.name || countryQuery.trim() || undefined;
+    void filterCities(query, country);
+    setShowCitySuggestions(true);
+    setShowCountrySuggestions(false);
+    setShowCountryResults(false);
+    setShowCityResults(false);
+    setShowSuggestions(false);
+    setShowNeighborhoodSuggestions(false);
   };
 
   const filterNeighborhoods = (query: string, cityName?: string, countryName?: string) =>
@@ -263,6 +272,8 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
     const cities = listMajorCities(shortName);
     setCitySuggestions(cities);
     emitLocation({ country: shortName, lat: r.lat, lng: r.lng, bbox: r.bbox, label: shortName });
+    openCityDropdown(shortName);
+    window.setTimeout(() => cityRef.current?.querySelector('input')?.focus(), 0);
   };
 
   const handleLocalCountrySelect = (c: CountryData) => {
@@ -277,6 +288,8 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
     const cities = listMajorCities(c.name);
     setCitySuggestions(cities);
     emitLocation({ country: c.name });
+    openCityDropdown(c.name);
+    window.setTimeout(() => cityRef.current?.querySelector('input')?.focus(), 0);
   };
 
   const handleLocalCitySelect = (item: { city: CityData; countryName: string }) => {
@@ -524,22 +537,25 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                       setCountryQuery(e.target.value);
                       setSelectedCountry(null);
                       const q = e.target.value;
-                      void filterCountries(q);
+                      filterCountries(q);
                       setShowCountrySuggestions(true);
-                      searchLocations(q, setCountryResults, 'country');
-                      setShowCountryResults(q.trim().length >= 2);
+                      setShowCountryResults(false);
                       setShowCityResults(false);
                       setShowCitySuggestions(false);
                       setShowSuggestions(false);
                       setShowNeighborhoodSuggestions(false);
                     }}
                     onFocus={() => {
-                      void filterCountries(countryQuery);
+                      filterCountries(countryQuery);
                       setShowCountrySuggestions(true);
                       setShowCityResults(false);
                       setShowCitySuggestions(false);
                       setShowSuggestions(false);
                       setShowNeighborhoodSuggestions(false);
+                    }}
+                    onMouseDown={() => {
+                      filterCountries(countryQuery);
+                      setShowCountrySuggestions(true);
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && selectedCountry) geocodeAndNavigate(); }}
                     placeholder="ابحث عن أي دولة..."
@@ -603,49 +619,57 @@ export default function HomePage({ onNavigate, onLocationChange, onSearchNavigat
                       setSelectedDistrict(null);
                       const q = e.target.value;
                       const country = selectedCountry?.name || countryQuery.trim() || undefined;
-                      filterCities(q, country);
-                      setShowCitySuggestions(q.trim().length >= 2);
-                      if (!country && q.trim().length >= 2) {
+                      openCityDropdown(country, q);
+                      if (!country && q.trim().length >= 3) {
                         searchLocations(q, setCityResults, 'settlement');
                         setShowCityResults(true);
                       } else {
                         setCityResults([]);
                         setShowCityResults(false);
                       }
-                      setShowCountryResults(false);
-                      setShowCountrySuggestions(false);
-                      setShowSuggestions(false);
-                      setShowNeighborhoodSuggestions(false);
                     }}
                     onFocus={() => {
-                      if (cityQuery.trim().length < 2) return;
                       const country = selectedCountry?.name || countryQuery.trim() || undefined;
-                      const major = listMajorCities(country, cityQuery);
-                      if (major.length) setCitySuggestions(major);
-                      else filterCities(cityQuery, country);
-                      setShowCitySuggestions(true);
-                      if (!country && cityResults.length > 0) setShowCityResults(true);
+                      openCityDropdown(country, cityQuery);
+                    }}
+                    onMouseDown={() => {
+                      const country = selectedCountry?.name || countryQuery.trim() || undefined;
+                      openCityDropdown(country, cityQuery);
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && selectedCity) geocodeAndNavigate(); }}
                     placeholder="ابحث عن أي مدينة..."
                     className="w-full bg-slate-50 hover:bg-slate-100 rounded-xl px-4 py-3.5 text-slate-900 text-sm font-semibold outline-none border border-slate-200 focus:border-brand-400 transition-all placeholder:text-slate-400 placeholder:font-normal"
                   />
-                  {showCitySuggestions && citySuggestions.length > 0 && (
-                    <div className="absolute top-full mt-2 w-full bg-white rounded-2xl border border-slate-200 shadow-2xl max-h-[280px] overflow-y-auto z-[100] animate-slide-down">
+                  {showCitySuggestions && createPortal(
+                    <div
+                      id="hero-city-menu"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={cityMenuPos}
+                      className="fixed z-[400] bg-white rounded-2xl border border-slate-200 shadow-2xl max-h-[min(52vh,320px)] overflow-y-auto overscroll-contain"
+                    >
+                      {citySuggestions.length === 0 && (
+                        <p className="px-4 py-3 text-sm font-medium text-slate-500 text-right">
+                          {selectedCountry?.name || countryQuery.trim()
+                            ? 'جاري تحميل مدن هذه الدولة...'
+                            : 'اختر الدولة أولاً لعرض المدن'}
+                        </p>
+                      )}
                       {citySuggestions.map((item, i) => (
                         <button
-                          key={i}
+                          key={`${item.city.en}-${item.city.countryCode}-${i}`}
+                          type="button"
                           onClick={() => handleLocalCitySelect(item)}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-brand-50 transition-all cursor-pointer text-right"
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-brand-50 active:bg-brand-100 transition-all cursor-pointer text-right touch-manipulation"
                         >
                           <Building2 className="w-4 h-4 text-brand-500 shrink-0" />
-                          <div className="text-right">
-                            <span className="text-slate-700 text-sm font-medium block">{item.city.name}</span>
-                            <span className="text-slate-400 text-xs">{item.city.en} • {item.countryName}</span>
+                          <div className="text-right min-w-0">
+                            <span className="text-slate-800 text-sm font-medium block truncate">{item.city.name}</span>
+                            <span className="text-slate-500 text-xs">{item.city.en} • {item.countryName}</span>
                           </div>
                         </button>
                       ))}
-                    </div>
+                    </div>,
+                    document.body,
                   )}
                   {showCityResults && cityResults.length > 0 && !showCitySuggestions && (
                     <div className="absolute top-full mt-2 w-full bg-white rounded-2xl border border-slate-200 shadow-2xl max-h-[280px] overflow-y-auto z-[100] animate-slide-down">

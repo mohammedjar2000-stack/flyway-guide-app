@@ -10,11 +10,12 @@ const BEZEL_BOTTOM = 16;
 const DEVICE_W = SCREEN_W + BEZEL_X * 2;
 const DEVICE_H = SCREEN_H + BEZEL_TOP + BEZEL_BOTTOM;
 
+/** Desktop is the default. Opt in to the iPhone mockup with `?frame=1` in development. */
 export function isDevPhoneFrameHost() {
   if (!import.meta.env.DEV) return false;
   if (typeof window === 'undefined') return false;
   if (window.name === PHONE_FRAME_WINDOW_NAME) return false;
-  return new URLSearchParams(window.location.search).get('frame') !== '0';
+  return new URLSearchParams(window.location.search).get('frame') === '1';
 }
 
 export default function DevPhoneFrame() {

@@ -173,23 +173,94 @@ async function loadCSC() {
 }
 
 const countryCache = new Map<string, CityData[]>();
+const countryRawCache = new Map<string, RawCity[]>();
+const CITY_SUGGEST_CAP = 80;
 
-async function getCitiesForCountry(code: string): Promise<CityData[]> {
-  const cached = countryCache.get(code);
-  if (cached) return cached;
-  const csc = await loadCSC();
-  const rawCities = csc.City.getCitiesOfCountry(code) as unknown as RawCity[];
-  const cities: CityData[] = rawCities.map((rc) => ({
+function mapRawCity(rc: RawCity, code: string): CityData {
+  return {
     name: toArabicCityName(rc.name),
     en: rc.name,
     lat: parseFloat(rc.latitude) || 0,
     lng: parseFloat(rc.longitude) || 0,
     countryCode: code,
     stateCode: rc.stateCode,
-    districts: getDistrictsForCity(rc.name, code),
-  }));
-  countryCache.set(code, cities);
+    districts: [],
+  };
+}
+
+async function getRawCitiesForCountry(code: string): Promise<RawCity[]> {
+  const cached = countryRawCache.get(code);
+  if (cached) return cached;
+  const csc = await loadCSC();
+  const rawCities = (csc.City.getCitiesOfCountry(code) as unknown as RawCity[]) ?? [];
+  countryRawCache.set(code, rawCities);
+  return rawCities;
+}
+
+async function getCitiesForCountry(code: string, query = ''): Promise<CityData[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    const cached = countryCache.get(code);
+    if (cached) return cached;
+  }
+  const rawCities = await getRawCitiesForCountry(code);
+  const matched = q
+    ? rawCities.filter((rc) => rc.name.toLowerCase().includes(q))
+    : rawCities;
+  const cities = matched.slice(0, Math.max(CITY_SUGGEST_CAP * 2, 160)).map((rc) => mapRawCity(rc, code));
+  if (!q) countryCache.set(code, cities);
   return cities;
+}
+
+function resolveCountryIsoSync(countryName?: string): string | undefined {
+  if (!countryName) return undefined;
+  const q = countryName.trim();
+  if (!q) return undefined;
+  const upper = q.toUpperCase();
+  const catalog = listCountriesFromCatalog();
+  const byCode = catalog.find((c) => c.code === upper);
+  if (byCode) return byCode.code;
+  if (ARABIC_COUNTRY_NAMES[upper]) return upper;
+  const fromCatalog = catalog.find(
+    (c) => c.name === q || c.en === q || c.code.toLowerCase() === q.toLowerCase(),
+  );
+  if (fromCatalog) return fromCatalog.code;
+  return Object.entries(ARABIC_COUNTRY_NAMES).find(([, ar]) => ar === q)?.[0];
+}
+
+async function resolveCountryIso(countryName?: string): Promise<string | undefined> {
+  const instant = resolveCountryIsoSync(countryName);
+  if (instant) return instant;
+  if (!countryName?.trim()) return undefined;
+  const raw = await getAllCountriesRaw();
+  const q = countryName.trim().toLowerCase();
+  const hit = raw.find((c) => {
+    const ar = toArabicCountryName(c.name, c.isoCode);
+    return (
+      c.isoCode.toLowerCase() === q ||
+      c.name.toLowerCase() === q ||
+      ar === countryName.trim() ||
+      ar.toLowerCase() === q
+    );
+  });
+  return hit?.isoCode;
+}
+
+function mergeCityHits(
+  major: { city: CityData; countryName: string }[],
+  extra: { city: CityData; countryName: string }[],
+  cap = CITY_SUGGEST_CAP,
+) {
+  const seen = new Set(major.map((m) => m.city.en.toLowerCase()));
+  const out = [...major];
+  for (const row of extra) {
+    if (out.length >= cap) break;
+    const key = row.city.en.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out.slice(0, cap);
 }
 
 let allCountriesRaw: RawCountry[] | null = null;
@@ -276,14 +347,42 @@ function filterCountryList(rows: CountryData[], query: string): CountryData[] {
     .map((row) => row.c);
 }
 
+function namedCountries(): CountryData[] {
+  const catalog = catalogCountries();
+  const extra = Object.entries(ARABIC_COUNTRY_NAMES).map(([code, name]) => {
+    const first = firstMajorCityForCountry(name);
+    return {
+      name,
+      en: catalog.find((c) => c.code === code)?.en || code,
+      code,
+      lat: first?.lat ?? 0,
+      lng: first?.lng ?? 0,
+      zoom: 6,
+      cities: [] as CityData[],
+    };
+  });
+  return mergeCountries([...catalog, ...extra]);
+}
+
+let _namedCountries: CountryData[] | null = null;
+function allNamedCountries(): CountryData[] {
+  if (!_namedCountries) _namedCountries = namedCountries();
+  return _namedCountries;
+}
+
+export function searchCountriesSync(query: string): CountryData[] {
+  const all = allNamedCountries();
+  if (!query.trim()) {
+    return mergeCountries([
+      ...catalogCountries(),
+      ...all.filter((c) => prioritySet.has(c.code)),
+    ]).slice(0, 40);
+  }
+  return filterCountryList(all, query).slice(0, 40);
+}
+
 export async function searchCountries(query: string): Promise<CountryData[]> {
-  const instant = filterCountryList(catalogCountries(), query);
-  const dataset = await getDataset();
-  const q = query.trim();
-  const fromDataset = !q
-    ? dataset.filter((c) => prioritySet.has(c.code))
-    : filterCountryList(dataset, q);
-  return mergeCountries([...instant, ...fromDataset]);
+  return searchCountriesSync(query);
 }
 
 function majorCitiesAsResults(countryName?: string, query = ''): { city: CityData; countryName: string }[] {
@@ -315,55 +414,29 @@ export async function searchCities(
 ): Promise<{ city: CityData; countryName: string }[]> {
   const q = query.trim().toLowerCase();
   const major = majorCitiesAsResults(countryName, query);
-  if (!q || countryName) {
-    if (major.length > 0) return major;
-  }
+  if (!countryName) return major.slice(0, CITY_SUGGEST_CAP);
 
-  const dataset = await getDataset();
+  const code = await resolveCountryIso(countryName);
+  if (!code) return major.slice(0, CITY_SUGGEST_CAP);
 
-  if (countryName) {
-    const country = dataset.find((c) => c.name === countryName || c.en === countryName);
-    if (!country) return major;
-    let cities = country.cities;
-    if (cities.length === 0) {
-      cities = await getCitiesForCountry(country.code);
-    }
-    const extra = cities
-      .filter((x) => !q || x.name.toLowerCase().includes(q) || x.en.toLowerCase().includes(q))
-      .slice(0, 40)
-      .map((city) => {
-        const known = lookupCity(city.en) ?? lookupCity(city.name);
-        return {
-          city: {
-            ...city,
-            lat: isValidCoord(city.lat, city.lng) ? city.lat : (known?.lat ?? city.lat),
-            lng: isValidCoord(city.lat, city.lng) ? city.lng : (known?.lng ?? city.lng),
-            districts: city.districts.length ? city.districts : (DISTRICT_DATA[`${city.en}_${city.countryCode}`] ?? []),
-          },
-          countryName: country.name,
-        };
-      });
-    const seen = new Set(major.map((m) => m.city.en.toLowerCase()));
-    return [...major, ...extra.filter((e) => !seen.has(e.city.en.toLowerCase()))].slice(0, 50);
-  }
-
-  if (major.length > 0 && q) return major.slice(0, 50);
-
-  const results: { city: CityData; countryName: string }[] = [...major];
-  for (const c of dataset) {
-    if (results.length >= 50) break;
-    let cities = c.cities;
-    if (cities.length === 0 && !prioritySet.has(c.code) && q) {
-      cities = await getCitiesForCountry(c.code);
-    }
-    for (const city of cities) {
-      if (results.length >= 50) break;
-      if (!q || city.name.toLowerCase().includes(q) || city.en.toLowerCase().includes(q)) {
-        results.push({ city, countryName: c.name });
-      }
-    }
-  }
-  return results;
+  const cities = await getCitiesForCountry(code, query);
+  const countryLabel = ARABIC_COUNTRY_NAMES[code] ?? countryName;
+  const extra = cities
+    .filter((x) => !q || x.name.toLowerCase().includes(q) || x.en.toLowerCase().includes(q))
+    .slice(0, CITY_SUGGEST_CAP)
+    .map((city) => {
+      const known = lookupCity(city.en) ?? lookupCity(city.name);
+      return {
+        city: {
+          ...city,
+          lat: isValidCoord(city.lat, city.lng) ? city.lat : (known?.lat ?? city.lat),
+          lng: isValidCoord(city.lat, city.lng) ? city.lng : (known?.lng ?? city.lng),
+          districts: city.districts.length ? city.districts : getDistrictsForCity(city.en, city.countryCode),
+        },
+        countryName: countryLabel,
+      };
+    });
+  return mergeCityHits(major, extra);
 }
 
 export function searchDistricts(
@@ -399,27 +472,37 @@ export function searchDistricts(
 }
 
 export async function findCountryByName(name: string): Promise<CountryData | undefined> {
-  const dataset = await getDataset();
-  return dataset.find((c) => c.name === name || c.en === name);
+  const fromCatalog = catalogCountries().find((c) => c.name === name || c.en === name);
+  if (fromCatalog) return fromCatalog;
+  const raw = await getAllCountriesRaw();
+  const hit = raw.find((c) => c.name === name || toArabicCountryName(c.name, c.isoCode) === name);
+  return hit ? buildCountryData(hit, []) : undefined;
 }
 
 export async function findCityByName(
   name: string,
   countryName?: string
 ): Promise<{ city: CityData; countryName: string } | undefined> {
-  const dataset = await getDataset();
-  const countries = countryName
-    ? dataset.filter((c) => c.name === countryName)
-    : dataset;
-  for (const c of countries) {
-    let cities = c.cities;
-    if (cities.length === 0 && !prioritySet.has(c.code)) {
-      cities = await getCitiesForCountry(c.code);
-    }
-    const city = cities.find((city) => city.name === name || city.en === name);
-    if (city) return { city, countryName: c.name };
+  const known = lookupCity(name);
+  if (known && (!countryName || known.country === countryName || known.countryEn === countryName || known.countryCode === countryName)) {
+    return {
+      city: {
+        name: known.name,
+        en: known.en,
+        lat: known.lat,
+        lng: known.lng,
+        countryCode: known.countryCode,
+        districts: getDistrictsForCity(known.en, known.countryCode),
+      },
+      countryName: known.country,
+    };
   }
-  return undefined;
+  const code = await resolveCountryIso(countryName);
+  if (!code) return undefined;
+  const cities = await getCitiesForCountry(code);
+  const city = cities.find((row) => row.name === name || row.en === name);
+  if (!city) return undefined;
+  return { city, countryName: ARABIC_COUNTRY_NAMES[code] ?? countryName ?? city.en };
 }
 
 export const PRIORITY_LOCATION_DATASET: CountryData[] = [];
